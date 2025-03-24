@@ -37,4 +37,4 @@ The game is currently in active development. Upcoming features include:
 - Multiple levels
 - Power-ups
 - Sound effects
-- Leaderboard system 
+- Leaderboard system
