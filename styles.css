@@ -25,6 +25,7 @@ body {
     width: 100%;
     height: 100%;
     z-index: 1;
+    display: block;
 }
 
 .overlay {
@@ -45,77 +46,94 @@ body {
     position: fixed;
     top: 20px;
     left: 20px;
-    z-index: 10;
+    color: white;
+    font-family: Arial, sans-serif;
     font-size: 24px;
-    text-shadow: 2px 2px 2px rgba(0, 0, 0, 0.5);
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    pointer-events: none;
 }
 
-#score-container {
-    background: rgba(0, 0, 0, 0.5);
-    padding: 15px;
+#score-container, #coins-container {
+    background: rgba(0, 0, 0, 0.8);
+    padding: 15px 25px;
     border-radius: 10px;
+    margin-bottom: 15px;
     backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-#score-container > div {
-    margin: 5px 0;
+#score-container div, #coins-container div {
+    font-weight: bold;
 }
 
-h1 {
+#score-value, #coins-value {
+    color: #4CAF50;
+    margin-left: 10px;
+}
+
+#start-screen {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 40px;
+    border-radius: 20px;
+    color: #4CAF50;
+    z-index: 100;
+}
+
+#start-screen h1 {
     font-size: 48px;
     margin-bottom: 30px;
     color: #4CAF50;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
-h2 {
+#start-screen h2 {
     font-size: 32px;
-    margin-bottom: 20px;
+    margin-top: 20px;
     color: #4CAF50;
 }
 
 #username-input {
+    display: block;
+    margin: 20px auto;
     padding: 15px;
-    font-size: 20px;
-    margin-bottom: 20px;
+    font-size: 18px;
+    width: 250px;
     border: 2px solid #4CAF50;
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-    text-align: center;
-    border-radius: 8px;
-    width: 280px;
-    max-width: 90%;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
 }
 
-#username-input:focus {
-    outline: none;
-    border-color: #45a049;
-    box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
-}
-
-button {
+#start-button {
     padding: 15px 30px;
     font-size: 20px;
     background: #4CAF50;
     color: white;
     border: none;
-    border-radius: 8px;
+    border-radius: 5px;
     cursor: pointer;
     transition: all 0.3s ease;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-weight: bold;
-    margin: 10px 0;
 }
 
-button:hover {
+#start-button:hover {
     background: #45a049;
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-button:active {
-    transform: translateY(0);
+/* Hide UI elements initially */
+#game-ui {
+    display: none;
+}
+
+/* Show UI elements when game starts */
+.game-started #game-ui {
+    display: block;
 }
 
 #leaderboard {
@@ -165,4 +183,49 @@ button:active {
     border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 50%;
     backdrop-filter: blur(5px);
+}
+
+#level-complete {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    padding: 30px 50px;
+    border-radius: 15px;
+    text-align: center;
+    color: white;
+    border: 2px solid #4CAF50;
+    animation: fadeInOut 2s ease-in-out;
+    z-index: 1000;
+}
+
+#level-complete h2 {
+    color: #4CAF50;
+    font-size: 36px;
+    margin-bottom: 20px;
+}
+
+#level-complete p {
+    font-size: 24px;
+    margin: 10px 0;
+}
+
+@keyframes fadeInOut {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+    20% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    80% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
+    }
 } 

@@ -8,21 +8,23 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.159.0/three.min.js"></script>
 </head>
 <body>
-    <div id="game-ui">
-        <div id="score-container">
-            <div>Score: <span id="score">0</span></div>
-            <div>Level: <span id="level">1</span></div>
-            <div>Coins: <span id="coins">0</span>/<span id="required-coins">10</span></div>
-        </div>
-    </div>
-
-    <div id="start-screen" class="overlay">
-        <h1>Platform Jumper</h1>
-        <input type="text" id="username-input" placeholder="Enter your name" maxlength="20">
-        <button id="start-button">Start Game</button>
-        <div id="leaderboard">
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        
+        <div id="start-screen">
+            <h1>Platform Jumper</h1>
+            <input type="text" id="username-input" placeholder="Enter your name">
+            <button id="start-button">Start Game</button>
             <h2>Leaderboard</h2>
-            <div id="leaderboard-entries"></div>
+        </div>
+
+        <div id="game-ui">
+            <div id="score-container">
+                <div>Score: <span id="score-value">0</span></div>
+            </div>
+            <div id="coins-container">
+                <div>Coins: <span id="coins-value">0</span></div>
+            </div>
         </div>
     </div>
 
@@ -37,8 +39,6 @@
         <div id="final-score"></div>
         <button id="restart-button">Play Again</button>
     </div>
-
-    <canvas id="game-canvas"></canvas>
 
     <div id="mobile-controls">
         <div id="joystick"></div>
