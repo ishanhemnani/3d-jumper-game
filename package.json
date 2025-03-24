@@ -1,0 +1,15 @@
+{
+  "name": "vibe-game",
+  "version": "1.0.0",
+  "description": "A browser-based multiplayer game for Vibe Coding Game Jam 2025",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "nipplejs": "^0.10.2",
+    "socket.io": "^4.7.4",
+    "three": "^0.161.0"
+  }
+}
