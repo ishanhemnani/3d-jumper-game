@@ -46,6 +46,37 @@ const PLATFORM_SPACING = {
     SAFE_PLATFORM_DISTANCE: 3.5  // Distance between red and green platforms
 };
 
+// Update LEVEL_CONFIG to adjust platform type probabilities
+const LEVEL_CONFIG = {
+    1: {
+        platformCount: 12,
+        maxRadius: 6,
+        heightStep: 2,
+        allowMoving: false,
+        allowDisappearing: false,
+        coinValue: 100,
+        movingPlatformChance: 0 // No moving platforms in level 1
+    },
+    2: {
+        platformCount: 15,
+        maxRadius: 7,
+        heightStep: 2.2,
+        allowMoving: true,
+        allowDisappearing: false,
+        coinValue: 150,
+        movingPlatformChance: 0.4 // 40% chance for moving platforms
+    },
+    3: {
+        platformCount: 15,
+        maxRadius: 8,
+        heightStep: 2.5,
+        allowMoving: true,
+        allowDisappearing: true,
+        coinValue: 200,
+        movingPlatformChance: 0.3 // 30% chance for moving platforms
+    }
+};
+
 // Initialize Three.js scene
 function init() {
     try {
@@ -94,7 +125,7 @@ function init() {
         scene.add(directionalLight);
 
         // Create initial platforms
-        createPlatforms();
+        createLevel(currentLevel);
 
         // Add coins after creating platforms
         addCoinsToLevel();
@@ -116,6 +147,146 @@ function init() {
         alert('Error: ' + error.message);
         return false;
     }
+}
+
+// Update createLevel function to handle platform types better
+function createLevel(levelNumber) {
+    clearLevel();
+    
+    const config = LEVEL_CONFIG[levelNumber];
+    if (!config) {
+        console.error('Invalid level number:', levelNumber);
+        return;
+    }
+
+    // First platform is always static and in a fixed position
+    const firstPlatform = createPlatform(0, 2, 3, 0.5, 0x228B22);
+    firstPlatform.position.z = 0;
+    platforms.push(firstPlatform);
+    createCoin(0, 3.5, 0);
+    
+    let lastX = 0;
+    let lastZ = 0;
+    let lastY = 2;
+    lastPlatformType = 'normal';
+
+    // Generate platforms in a spiral pattern
+    for (let i = 1; i < config.platformCount - 1; i++) {
+        const height = lastY + config.heightStep;
+        
+        // Determine platform type based on level config
+        let platformType = 'normal';
+        if (i > 2) { // Don't add special platforms too early in the level
+            const rand = Math.random();
+            if (config.allowMoving && config.allowDisappearing) {
+                if (lastPlatformType === 'disappearing') {
+                    platformType = Math.random() < config.movingPlatformChance ? 'moving' : 'normal';
+                } else if (lastPlatformType === 'moving') {
+                    platformType = Math.random() < 0.3 ? 'disappearing' : 'normal';
+                } else {
+                    if (rand < config.movingPlatformChance) platformType = 'moving';
+                    else if (rand < config.movingPlatformChance + 0.3) platformType = 'disappearing';
+                }
+            } else if (config.allowMoving) {
+                platformType = rand < config.movingPlatformChance ? 'moving' : 'normal';
+            }
+        }
+
+        // Calculate new position using spiral pattern
+        const angle = (i / config.platformCount) * Math.PI * 2 + Math.random() * 0.5;
+        const radius = (i / config.platformCount) * config.maxRadius;
+        let x = Math.cos(angle) * radius;
+        let z = Math.sin(angle) * radius;
+
+        // Ensure minimum distance from previous platform
+        const distanceFromLast = Math.sqrt(
+            Math.pow(x - lastX, 2) + Math.pow(z - lastZ, 2)
+        );
+        
+        if (distanceFromLast < PLATFORM_SPACING.MIN_HORIZONTAL) {
+            const scale = PLATFORM_SPACING.MIN_HORIZONTAL / distanceFromLast;
+            x = lastX + (x - lastX) * scale;
+            z = lastZ + (z - lastZ) * scale;
+        }
+
+        // Create platform based on type
+        let platform;
+        const width = 3;
+
+        switch (platformType) {
+            case 'moving':
+                platform = createMovingPlatform(x, height, z, width);
+                break;
+            case 'disappearing':
+                platform = createDisappearingPlatform(x, height, z, width);
+                // Create a normal platform at a safe distance
+                const safeAngle = angle + Math.PI / 4;
+                const safeX = x + Math.cos(safeAngle) * PLATFORM_SPACING.SAFE_PLATFORM_DISTANCE;
+                const safeZ = z + Math.sin(safeAngle) * PLATFORM_SPACING.SAFE_PLATFORM_DISTANCE;
+                const safePlatform = createPlatform(safeX, height, width, 0.5, 0x228B22);
+                safePlatform.position.z = safeZ;
+                platforms.push(safePlatform);
+                createCoin(safeX, height + 1.5, safeZ);
+                break;
+            default:
+                platform = createPlatform(x, height, width, 0.5, 0x228B22);
+                platform.position.z = z;
+        }
+
+        if (platform) {
+            platforms.push(platform);
+            createCoin(x, height + 1.5, z);
+            lastX = x;
+            lastZ = z;
+            lastY = height;
+            lastPlatformType = platformType;
+        }
+    }
+
+    // Add final platform (golden platform)
+    const finalHeight = lastY + config.heightStep;
+    createGoalPlatform(0, finalHeight, 0, 4);
+    createCoin(0, finalHeight + 1.5, 0);
+}
+
+// Modify the clearLevel function to properly clean up all goal platform elements
+function clearLevel() {
+    // Remove all platforms
+    platforms.forEach(platform => {
+        if (platform && platform.parent) {
+            platform.parent.remove(platform);
+        }
+    });
+    platforms = [];
+
+    // Remove all coins
+    coins.forEach(coin => {
+        if (coin && coin.parent) {
+            coin.parent.remove(coin);
+        }
+    });
+    coins = [];
+
+    // Remove goal platform and its glow effect
+    if (goalPlatform && goalPlatform.parent) {
+        // Find and remove the glow effect
+        scene.children.forEach(child => {
+            if (child.type === "Mesh" && 
+                child.material && 
+                child.material.color && 
+                child.material.color.getHex() === 0xFFD700 && 
+                child.material.transparent === true) {
+                scene.remove(child);
+            }
+        });
+        
+        // Remove the goal platform itself
+        goalPlatform.parent.remove(goalPlatform);
+    }
+    goalPlatform = null;
+
+    // Reset moving platforms array
+    movingPlatforms = [];
 }
 
 // Create platforms for current level
@@ -778,7 +949,10 @@ function collectCoin(index) {
     const coin = coins[index];
     if (coin.visible) {
         coin.visible = false;
-        score += 100;
+        
+        // Add points based on the current level's coin value
+        const coinValue = LEVEL_CONFIG[currentLevel].coinValue;
+        score += coinValue;
         coinsCollected++;
         updateUI();
         
@@ -848,37 +1022,44 @@ function updateUI() {
     document.getElementById('coins-value').textContent = coinsCollected;
 }
 
-// Create a goal platform with distinct appearance
+// Update createGoalPlatform function to keep track of the glow element
 function createGoalPlatform(x, y, z, width) {
     const geometry = new THREE.BoxGeometry(width, 0.5, 2);
     const material = new THREE.MeshStandardMaterial({ 
         color: 0xFFD700,
         emissive: 0xFFD700,
         emissiveIntensity: 0.4,
-        metalness: 1.0,
-        roughness: 0.2
+        metalness: 0.9,
+        roughness: 0.2,
+        transparent: false // Ensure the platform itself is not transparent
     });
     goalPlatform = new THREE.Mesh(geometry, material);
     goalPlatform.position.set(x, y, z);
+    goalPlatform.userData.isGoalPlatform = true; // Mark as goal platform
     scene.add(goalPlatform);
 
-    // Add subtle pulsing glow effect
-    const glowGeometry = new THREE.BoxGeometry(width + 0.4, 0.7, 2.4);
+    // Create separate glow effect
+    const glowGeometry = new THREE.BoxGeometry(width + 0.1, 0.55, 2.1);
     const glowMaterial = new THREE.MeshBasicMaterial({ 
         color: 0xFFD700,
         transparent: true,
-        opacity: 0.15
+        opacity: 0.08,
+        depthWrite: false // Prevent z-fighting with the main platform
     });
     const glow = new THREE.Mesh(glowGeometry, glowMaterial);
     glow.position.copy(goalPlatform.position);
+    glow.userData.isGoalGlow = true; // Mark as goal platform glow
     scene.add(glow);
 
-    // Animate glow with smoother pulsing
+    // Store reference to glow in goalPlatform
+    goalPlatform.userData.glowEffect = glow;
+
+    // Animate glow with subtle pulsing
     let time = 0;
     const animateGlow = () => {
-        if (goalPlatform.parent) {
-            time += 0.02;
-            glowMaterial.opacity = 0.15 + Math.sin(time) * 0.05;
+        if (goalPlatform && goalPlatform.parent && glow && glow.parent) {
+            time += 0.01;
+            glowMaterial.opacity = 0.08 + Math.sin(time) * 0.02;
             requestAnimationFrame(animateGlow);
         }
     };
@@ -894,7 +1075,7 @@ function checkLevelCompletion() {
 
         if (distance < 2) {
             // Calculate bonus for collected coins
-            const coinBonus = coinsCollected * 200; // 200 points per coin
+            const coinBonus = coinsCollected * LEVEL_CONFIG[currentLevel].coinValue;
             score += coinBonus;
             
             completedLevel();
@@ -902,69 +1083,329 @@ function checkLevelCompletion() {
     }
 }
 
-// Level completion handler
+// Update level completion handler with improved UI
 function completedLevel() {
     isLevelComplete = true;
-    const levelBonus = 1000;
+    
+    // Calculate level bonus based on current level
+    const levelBonus = LEVEL_CONFIG[currentLevel].coinValue * 2;
+    
+    // Add bonus to score
     score += levelBonus;
     
-    // Show level complete UI with coin collection bonus
-    const coinBonus = coinsCollected * 200;
-    showLevelCompleteUI(coinBonus);
-    
-    // Prepare for next level
-    setTimeout(() => {
-        if (currentLevel < totalLevels) {
-            currentLevel++;
-            loadNextLevel();
-        } else {
-            showGameCompleteUI();
+    // Get level complete UI element
+    const levelCompleteUI = document.getElementById('level-complete');
+    if (levelCompleteUI) {
+        // Update title based on current level
+        const levelTitle = levelCompleteUI.querySelector('h2');
+        if (levelTitle) {
+            levelTitle.textContent = `Level ${currentLevel} Complete!`;
         }
-    }, 2000);
+        
+        // Update level stats with animations
+        const levelStats = document.getElementById('level-stats');
+        if (levelStats) {
+            levelStats.innerHTML = `
+                <div class="stat-row">
+                    <div class="stat-label">Level Bonus:</div>
+                    <div class="stat-value animate-value">+${levelBonus}</div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Coins Collected:</div>
+                    <div class="stat-value">${coinsCollected}</div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Total Score:</div>
+                    <div class="stat-value highlight">${score}</div>
+                </div>
+            `;
+        }
+        
+        // Configure next level button
+        const nextLevelBtn = document.getElementById('next-level-button');
+        if (nextLevelBtn) {
+            // Clear existing event listeners
+            const newBtn = nextLevelBtn.cloneNode(true);
+            nextLevelBtn.parentNode.replaceChild(newBtn, nextLevelBtn);
+            
+            // Update button text based on if this is the last level
+            if (currentLevel >= totalLevels) {
+                newBtn.textContent = 'Complete Game';
+            } else {
+                newBtn.textContent = `Start Level ${currentLevel + 1}`;
+            }
+            
+            // Add click event listener
+            newBtn.addEventListener('click', () => {
+                hideCompletionUI();
+            });
+        }
+        
+        // Show the UI with animation
+        levelCompleteUI.style.display = 'flex';
+        levelCompleteUI.classList.add('show-ui');
+        
+        // Add auto-proceed after delay if user doesn't click
+        setTimeout(() => {
+            if (levelCompleteUI.style.display !== 'none') {
+                hideCompletionUI();
+            }
+        }, 8000); // Wait 8 seconds before auto-proceeding
+    }
+    
+    // Helper function to hide UI with animation
+    function hideCompletionUI() {
+        levelCompleteUI.classList.remove('show-ui');
+        levelCompleteUI.classList.add('hide-ui');
+        
+        // Wait for animation to complete before proceeding
+        setTimeout(() => {
+            levelCompleteUI.style.display = 'none';
+            levelCompleteUI.classList.remove('hide-ui');
+            
+            if (currentLevel >= totalLevels) {
+                showGameCompleteUI();
+            } else {
+                loadNextLevel();
+            }
+        }, 400); // Match animation duration
+    }
 }
 
-// Show level complete UI with coin bonus
-function showLevelCompleteUI(coinBonus) {
-    const levelComplete = document.createElement('div');
-    levelComplete.id = 'level-complete';
-    levelComplete.innerHTML = `
-        <h2>Level ${currentLevel} Complete!</h2>
-        <p>Level Score: ${score}</p>
-        <p>Coins Collected: ${coinsCollected}</p>
-        <p>Coin Bonus: +${coinBonus}</p>
-        ${currentLevel < totalLevels ? '<p>Next level starting soon...</p>' : '<p>Game Complete!</p>'}
-    `;
-    document.body.appendChild(levelComplete);
-
-    // Remove after animation
-    setTimeout(() => {
-        levelComplete.remove();
-    }, 2000);
-}
-
-// Load next level
+// Update loadNextLevel to preserve score and coins
 function loadNextLevel() {
+    // Store the current score and coins before resetting the level
+    const currentScore = score;
+    const currentCoinsCollected = coinsCollected;
+    
+    // Reset game state but preserve score and coins
+    resetGameState();
+    
+    // Increment level
+    currentLevel++;
+    
+    // Create new level
+    createLevel(currentLevel);
+    
+    // Update UI
+    updateLevelDisplay();
+    
     // Reset player position
     resetPlayer();
     
-    // Clear current level
-    platforms.forEach(platform => scene.remove(platform));
-    platforms = [];
-    coins.forEach(coin => scene.remove(coin));
-    coins = [];
-    if (goalPlatform) {
-        scene.remove(goalPlatform);
-    }
-    
-    // Create new level
-    createPlatforms();
-    addCoinsToLevel();
-    
-    // Reset level state
+    // Restore score and coins
+    score = currentScore;
+    coinsCollected = currentCoinsCollected;
+    updateUI();
+}
+
+// Modify the resetGameState function to focus only on level-specific elements
+function resetGameState() {
+    // Only reset level-specific state variables
+    clearLevel();
     isLevelComplete = false;
+    
+    // Reset player physics state
     isJumping = false;
     velocity = 0;
+    canMove = true;
+}
+
+// Add function to update level display
+function updateLevelDisplay() {
+    const levelDisplay = document.getElementById('level-display');
+    if (levelDisplay) {
+        levelDisplay.textContent = `Level ${currentLevel}`;
+    }
+}
+
+// Show game complete UI with symmetrical buttons
+function showGameCompleteUI() {
+    const gameComplete = document.createElement('div');
+    gameComplete.id = 'game-complete';
+    gameComplete.innerHTML = `
+        <h2>Game Complete!</h2>
+        <div class="completion-stats">
+            <p>Congratulations! You've completed all ${totalLevels} levels!</p>
+            <p>Final Score: <span class="highlight">${score}</span></p>
+            <p>Total Coins: <span class="highlight">${coinsCollected}</span></p>
+        </div>
+        <div class="button-container">
+            <button id="twitter-share-btn" class="game-btn share-btn">Share on Twitter</button>
+            <button id="replay-btn" class="game-btn replay-btn">Play Again</button>
+        </div>
+    `;
+    document.body.appendChild(gameComplete);
+
+    // Add entrance animation effect
+    setTimeout(() => {
+        gameComplete.style.opacity = '0';
+        gameComplete.style.transform = 'translate(-50%, -50%) scale(0.8)';
+        
+        // Force reflow
+        gameComplete.offsetHeight;
+        
+        // Apply animation
+        gameComplete.style.transition = 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        gameComplete.style.opacity = '1';
+        gameComplete.style.transform = 'translate(-50%, -50%) scale(1)';
+    }, 10);
+
+    // Add event listener for Twitter share
+    const shareBtn = document.getElementById('twitter-share-btn');
+    if (shareBtn) {
+        shareBtn.addEventListener('click', shareOnTwitter);
+    }
+
+    // Add event listener for replay button
+    const replayBtn = document.getElementById('replay-btn');
+    if (replayBtn) {
+        replayBtn.addEventListener('click', restartGame);
+    }
+}
+
+// Function to share on Twitter with a single screenshot dialog
+function shareOnTwitter() {
+    // Remove any existing screenshot message
+    const existingMessage = document.getElementById('screenshot-message');
+    if (existingMessage) {
+        existingMessage.remove();
+    }
     
-    // Update UI
-    updateUI();
+    // Create a tweet text that emphasizes adding the screenshot
+    const tweetText = `I just completed all ${totalLevels} levels of 3D Jumper Game with a final score of ${score} and collected ${coinsCollected} coins! Check out my gameplay! #3DJumperGame`;
+    
+    // Take a screenshot and prepare sharing UI
+    takeScreenshot().then(imgData => {
+        // Create a screenshot viewer with clear instructions
+        const message = document.createElement('div');
+        message.id = 'screenshot-message';
+        message.innerHTML = `
+            <h3>Share Your Achievement</h3>
+            <div class="screenshot-container">
+                <img src="${imgData}" alt="Game Screenshot" id="screenshot-image">
+            </div>
+            <p>Twitter will open in a new tab with your pre-written tweet.</p>
+            <p><strong>To include this screenshot with your tweet:</strong></p>
+            <ol>
+                <li>Download the screenshot using the button below</li>
+                <li>In the Twitter compose window, click the "Add photos or video" icon</li>
+                <li>Select the downloaded screenshot to attach it to your tweet</li>
+            </ol>
+            <div class="screenshot-buttons">
+                <button id="download-screenshot-btn">Download Screenshot</button>
+                <button id="open-twitter-btn">Open Twitter</button>
+                <button id="close-message-btn">Close</button>
+            </div>
+        `;
+        document.body.appendChild(message);
+        
+        // Add entrance animation
+        setTimeout(() => {
+            message.style.opacity = '0';
+            message.style.transform = 'translate(-50%, -50%) scale(0.8)';
+            
+            // Force reflow
+            message.offsetHeight;
+            
+            // Apply animation
+            message.style.transition = 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            message.style.opacity = '1';
+            message.style.transform = 'translate(-50%, -50%) scale(1)';
+        }, 10);
+        
+        // Add event listener for the download button
+        const downloadBtn = document.getElementById('download-screenshot-btn');
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', () => {
+                // Create a temporary link element to download the image
+                const link = document.createElement('a');
+                link.href = imgData;
+                link.download = `3DJumper_Score${score}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+        }
+        
+        // Add event listener for the Twitter button
+        const twitterBtn = document.getElementById('open-twitter-btn');
+        if (twitterBtn) {
+            twitterBtn.addEventListener('click', () => {
+                // Open Twitter with the pre-populated text
+                const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
+                window.open(twitterUrl, '_blank');
+            });
+        }
+        
+        // Add event listener to close the message
+        const closeBtn = document.getElementById('close-message-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                // Add exit animation
+                message.style.transition = 'all 0.4s ease-in';
+                message.style.opacity = '0';
+                message.style.transform = 'translate(-50%, -50%) scale(0.8)';
+                
+                // Remove after animation completes
+                setTimeout(() => {
+                    message.remove();
+                }, 400);
+            });
+        }
+    });
+}
+
+// Function to restart the game
+function restartGame() {
+    // Get the game complete UI
+    const gameComplete = document.getElementById('game-complete');
+    if (gameComplete) {
+        // Add exit animation
+        gameComplete.style.transition = 'all 0.4s ease-in';
+        gameComplete.style.opacity = '0';
+        gameComplete.style.transform = 'translate(-50%, -50%) scale(0.8)';
+        
+        // Remove after animation completes
+        setTimeout(() => {
+            gameComplete.remove();
+            
+            // Reset to level 1
+            currentLevel = 1;
+            
+            // Reset game state
+            resetGameState();
+            
+            // Create new level
+            createLevel(currentLevel);
+            
+            // Update UI
+            updateLevelDisplay();
+            
+            // Reset player position
+            resetPlayer();
+            
+            // Reset score and coins only when restarting the whole game
+            score = 0;
+            coinsCollected = 0;
+            updateUI();
+        }, 400);
+    }
+}
+
+// Function to take a screenshot
+function takeScreenshot() {
+    return new Promise(resolve => {
+        // Render the current scene to get a screenshot
+        renderer.render(scene, camera);
+        
+        // Convert the canvas to an image data URL
+        const imgData = renderer.domElement.toDataURL('image/png');
+        
+        // In a real implementation, you would upload this image to a server
+        // and then use the URL in the tweet. For now, we'll just return the data
+        console.log("Screenshot taken!");
+        
+        resolve(imgData);
+    });
 } 

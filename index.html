@@ -11,14 +11,57 @@
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
         
-        <div id="start-screen">
-            <h1>Platform Jumper</h1>
-            <input type="text" id="username-input" placeholder="Enter your name">
+        <div id="start-screen" class="overlay">
+            <h1>3D Jumper</h1>
+            <h2>Enter your name to start</h2>
+            <input type="text" id="username-input" placeholder="Your Name">
             <button id="start-button">Start Game</button>
-            <h2>Leaderboard</h2>
+            
+            <div id="game-instructions">
+                <div class="instructions-section">
+                    <h3>Controls</h3>
+                    <ul>
+                        <li><span class="key">W</span><span class="key">↑</span> Move Forward</li>
+                        <li><span class="key">S</span><span class="key">↓</span> Move Backward</li>
+                        <li><span class="key">A</span><span class="key">←</span> Move Left</li>
+                        <li><span class="key">D</span><span class="key">→</span> Move Right</li>
+                        <li><span class="key">Space</span> Jump</li>
+                        <li><span class="instruction-text">Mouse</span> Look Around</li>
+                    </ul>
+                </div>
+                
+                <div class="instructions-section">
+                    <h3>Platform Types</h3>
+                    <div class="platform-types">
+                        <div class="platform-type">
+                            <div class="platform-color green"></div>
+                            <span>Normal Platform</span>
+                        </div>
+                        <div class="platform-type">
+                            <div class="platform-color blue"></div>
+                            <span>Moving Platform</span>
+                        </div>
+                        <div class="platform-type">
+                            <div class="platform-color red"></div>
+                            <span>Disappearing Platform</span>
+                        </div>
+                        <div class="platform-type">
+                            <div class="platform-color gold"></div>
+                            <span>Goal Platform</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="instructions-section">
+                    <h3>Objective</h3>
+                    <p>Collect all coins and reach the golden goal platform to complete each level.</p>
+                    <p>The game has 3 levels with increasing difficulty.</p>
+                </div>
+            </div>
         </div>
 
         <div id="game-ui">
+            <div id="level-display">Level 1</div>
             <div id="score-container">
                 <div>Score: <span id="score-value">0</span></div>
             </div>
