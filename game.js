@@ -38,6 +38,44 @@ let platformStates = new Map(); // Store states for special platforms
 let lastPlatformType = 'normal';
 let cameraResetButton = null;
 
+// Infinity mode variables
+let isInfinityMode = false;
+let infinityDifficulty = null;
+let platformsCleared = 0;
+let nextPlatformIndex = 7; // Index to start generating new platforms
+let lastGeneratedHeight = 2; // Track the height of the last generated platform
+
+// Infinity mode configuration
+const INFINITY_CONFIG = {
+    easy: {
+        platformTypes: ['normal'],
+        initialPlatforms: 15,
+        newPlatformsCount: 7,
+        heightStep: 2.2,
+        coinValue: 100,
+        platformWidth: 3 // Increased platform width
+    },
+    medium: {
+        platformTypes: ['normal', 'moving'],
+        initialPlatforms: 15,
+        newPlatformsCount: 7,
+        heightStep: 2.5,
+        coinValue: 150,
+        movingPlatformChance: 0.4,
+        platformWidth: 3 // Increased platform width
+    },
+    hard: {
+        platformTypes: ['normal', 'moving', 'disappearing'],
+        initialPlatforms: 15,
+        newPlatformsCount: 7,
+        heightStep: 2.5, // Reduced from 2.8 to make it more playable
+        coinValue: 200,
+        movingPlatformChance: 0.3,
+        disappearingPlatformChance: 0.25, // Slightly reduced from 0.3
+        platformWidth: 3.5 // Larger platforms for hard mode
+    }
+};
+
 // Update platform spacing constants at the top
 const PLATFORM_SPACING = {
     MIN_HORIZONTAL: 3.5,    // Minimum horizontal distance between platforms
@@ -252,20 +290,41 @@ function createLevel(levelNumber) {
 // Modify the clearLevel function to properly clean up all goal platform elements
 function clearLevel() {
     // Remove all platforms
-    platforms.forEach(platform => {
-        if (platform && platform.parent) {
-            platform.parent.remove(platform);
-        }
-    });
+    for (let platform of platforms) {
+        scene.remove(platform);
+    }
     platforms = [];
-
+    
     // Remove all coins
-    coins.forEach(coin => {
-        if (coin && coin.parent) {
-            coin.parent.remove(coin);
-        }
-    });
+    for (let coin of coins) {
+        scene.remove(coin);
+    }
     coins = [];
+    
+    // Clear moving platforms array
+    movingPlatforms = [];
+    
+    // Reset platform states
+    platformStates = new Map();
+    
+    // Reset player position
+    if (player) {
+        player.position.set(0, 5, 0);
+        velocity = 0;
+    }
+    
+    // Reset game state variables
+    if (!isInfinityMode) {
+        score = 0;
+        coinsCollected = 0;
+    }
+    
+    // Reset infinity mode specific variables if switching modes
+    if (!isInfinityMode) {
+        platformsCleared = 0;
+        nextPlatformIndex = 7;
+        lastGeneratedHeight = 2;
+    }
 
     // Remove goal platform and its glow effect
     if (goalPlatform && goalPlatform.parent) {
@@ -284,9 +343,6 @@ function clearLevel() {
         goalPlatform.parent.remove(goalPlatform);
     }
     goalPlatform = null;
-
-    // Reset moving platforms array
-    movingPlatforms = [];
 }
 
 // Create platforms for current level
@@ -761,103 +817,131 @@ function resetPlayer() {
     isJumping = false;
 }
 
-// Update game state with camera-relative movement
+// Update function that checks for ground collision
 function update() {
-    if (!gameStarted || isLevelComplete) return;
+    // Apply gravity
+    velocity += gravity;
+    player.position.y += velocity;
 
-    // Update moving platforms
-    updateMovingPlatforms();
+    // Check for ground collision (game over in infinity mode)
+    if (player.position.y <= 0) {
+        player.position.y = 0; // Prevent falling through ground
+        
+        if (isInfinityMode) {
+            // Game over - hit the ground
+            showInfinityGameOver();
+            return;
+        }
+    }
 
-    // Calculate movement direction based on camera angle
-    const moveDirection = new THREE.Vector3();
-    const cameraDirection = new THREE.Vector3();
-    camera.getWorldDirection(cameraDirection);
-    
-    // Calculate forward and right vectors relative to camera
-    const forward = new THREE.Vector3(
-        -Math.sin(cameraAngle.y),
-        0,
-        -Math.cos(cameraAngle.y)
-    ).normalize();
-    
-    const right = new THREE.Vector3(
-        Math.cos(cameraAngle.y),
-        0,
-        -Math.sin(cameraAngle.y)
-    ).normalize();
+    // Handle movement
+    const moveDirection = new THREE.Vector3(0, 0, 0);
+    const cameraDirection = camera.getWorldDirection(new THREE.Vector3());
+    cameraDirection.y = 0;
+    cameraDirection.normalize();
 
-    // Apply movement based on camera direction
+    const cameraRight = new THREE.Vector3();
+    cameraRight.crossVectors(cameraDirection, new THREE.Vector3(0, 1, 0)).normalize();
+
     if (moveForward) {
-        moveDirection.add(forward);
+        moveDirection.add(cameraDirection);
     }
     if (moveBackward) {
-        moveDirection.sub(forward);
+        moveDirection.sub(cameraDirection);
     }
     if (moveLeft) {
-        moveDirection.sub(right);
+        moveDirection.sub(cameraRight);
     }
     if (moveRight) {
-        moveDirection.add(right);
+        moveDirection.add(cameraRight);
     }
 
-    // Normalize and apply movement
     if (moveDirection.length() > 0) {
         moveDirection.normalize();
         player.position.x += moveDirection.x * moveSpeed;
         player.position.z += moveDirection.z * moveSpeed;
     }
 
-    // Apply gravity and vertical movement
-    if (!checkPlatformCollisions()) {
-        velocity += gravity;
-        isJumping = true;
-    }
-    
-    // Apply velocity with maximum fall speed
-    velocity = Math.max(velocity, -0.5);
-    player.position.y += velocity;
+    // Check platform collisions
+    checkPlatformCollisions();
 
-    // Check if player has fallen to ground level
-    if (player.position.y < 0) {
-        player.position.y = 0;
-        velocity = 0;
-        isJumping = false;
+    // Check if player has fallen below a certain threshold
+    if (player.position.y < -10) {
+        if (isInfinityMode) {
+            showInfinityGameOver();
+        } else {
+            resetPlayer();
+        }
     }
 
-    // Check if player is too far from base
-    const distanceFromCenter = Math.sqrt(
-        player.position.x * player.position.x + 
-        player.position.z * player.position.z
-    );
-    
-    if (distanceFromCenter > 45) {
-        resetPlayer();
-    }
-
-    // Check for coin collection
+    // Check coin collection
     checkCoinCollection();
 
-    // Rotate coins
-    coins.forEach(coin => {
-        if (coin.visible) {
-            coin.rotation.z += 0.02;
-        }
-    });
-
-    // Update camera position
-    updateCamera();
-
     // Check level completion
-    checkLevelCompletion();
+    if (!isInfinityMode) {
+        checkLevelCompletion();
+    }
+
+    // Update UI
+    updateUI();
 }
 
 // Animation loop
+let animationFrameId = null; // Track the animation frame request
+
 function animate() {
-    requestAnimationFrame(animate);
+    animationFrameId = requestAnimationFrame(animate);
+    
     if (gameStarted) {
+        // Update player position and physics
         update();
-        renderer.render(scene, camera);
+        
+        // Check for game over conditions
+        if (player.position.y < -1) {
+            if (isInfinityMode) {
+                showInfinityGameOver();
+            } else {
+                showGameOver();
+            }
+            return;
+        }
+        
+        // Additional ground collision check for infinity mode
+        if (isInfinityMode && player.position.y <= 0) {
+            player.position.y = 0; // Prevent falling through ground
+            showInfinityGameOver();
+            return;
+        }
+        
+        // Check infinity mode progress
+        if (isInfinityMode) {
+            checkInfinityProgress();
+        }
+        
+        // Update moving platforms
+        updateMovingPlatforms();
+        
+        // Update camera position
+        updateCamera();
     }
+    
+    renderer.render(scene, camera);
+}
+
+// Function to properly stop animation
+function stopAnimation() {
+    if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+}
+
+// Function to restart animation
+function startAnimation() {
+    // Stop any existing animation first
+    stopAnimation();
+    // Start a new animation loop
+    animate();
 }
 
 // Start game when button is clicked
@@ -874,11 +958,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!gameStarted) {
                     if (init()) {
                         gameStarted = true;
-                        animate();
                         // Initialize score display
                         score = 0;
                         coinsCollected = 0;
                         updateUI();
+                        
+                        // Start animation with the new function
+                        startAnimation();
                         console.log('Game started successfully');
                     }
                 }
@@ -1389,6 +1475,10 @@ function restartGame() {
             score = 0;
             coinsCollected = 0;
             updateUI();
+            
+            // Start the game again
+            gameStarted = true;
+            canMove = true;
         }, 400);
     }
 }
@@ -1408,4 +1498,385 @@ function takeScreenshot() {
         
         resolve(imgData);
     });
-} 
+}
+
+// Add infinity mode initialization
+function initInfinityMode(difficulty) {
+    // Stop any existing animation
+    stopAnimation();
+    
+    // Initialize the game if not already initialized
+    if (!scene) {
+        if (!init()) {
+            console.error('Failed to initialize game');
+            return;
+        }
+    }
+
+    isInfinityMode = true;
+    infinityDifficulty = difficulty;
+    platformsCleared = 0;
+    nextPlatformIndex = 7;
+    lastGeneratedHeight = 2;
+    score = 0;
+    coinsCollected = 0;
+
+    clearLevel();
+    createInfinityLevel();
+    
+    // Update UI
+    document.getElementById('level-display').textContent = `Infinity Mode - ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}`;
+    document.getElementById('score-value').textContent = '0';
+    document.getElementById('coins-value').textContent = '0';
+    
+    // Hide overlays
+    document.getElementById('infinity-mode-select').style.display = 'none';
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('game-ui').style.display = 'block';
+    
+    // Reset player position
+    player.position.set(0, 5, 0);
+    velocity = 0;
+    
+    // Start the game
+    gameStarted = true;
+    canMove = true;
+
+    // Start animation loop with the new function
+    startAnimation();
+}
+
+function createInfinityLevel() {
+    const config = INFINITY_CONFIG[infinityDifficulty];
+    
+    // Create first platform
+    const firstPlatform = createPlatform(0, 2, config.platformWidth, 0.5, 0x228B22);
+    firstPlatform.position.z = 0;
+    platforms.push(firstPlatform);
+    const firstCoin = createCoin(0, 3.5, 0);
+    
+    let lastX = 0;
+    let lastZ = 0;
+    let lastY = 2;
+    
+    // Generate initial platforms
+    for (let i = 1; i < config.initialPlatforms; i++) {
+        const height = lastY + config.heightStep;
+        let platformType = 'normal';
+        
+        // Determine platform type based on difficulty
+        if (i > 2) {
+            const rand = Math.random();
+            if (config.platformTypes.includes('moving') && config.platformTypes.includes('disappearing')) {
+                if (rand < config.movingPlatformChance) platformType = 'moving';
+                else if (rand < config.movingPlatformChance + config.disappearingPlatformChance) platformType = 'disappearing';
+            } else if (config.platformTypes.includes('moving')) {
+                if (rand < config.movingPlatformChance) platformType = 'moving';
+            }
+        }
+        
+        // Calculate new position using spiral pattern
+        const angle = (i / config.initialPlatforms) * Math.PI * 2 + Math.random() * 0.5;
+        const radius = (i / config.initialPlatforms) * 6;
+        let x = Math.cos(angle) * radius;
+        let z = Math.sin(angle) * radius;
+        
+        // Ensure minimum distance from previous platform
+        const dx = x - lastX;
+        const dz = z - lastZ;
+        const distance = Math.sqrt(dx * dx + dz * dz);
+        
+        if (distance < PLATFORM_SPACING.MIN_HORIZONTAL) {
+            const scale = PLATFORM_SPACING.MIN_HORIZONTAL / distance;
+            x = lastX + dx * scale;
+            z = lastZ + dz * scale;
+        }
+        
+        // Create platform with config-specific width
+        const platform = createPlatform(x, height, config.platformWidth, 0.5, getPlatformColor(platformType));
+        platform.position.z = z; // Ensure z position is set
+        
+        if (platformType === 'moving') {
+            setupMovingPlatform(platform, x, z);
+        } else if (platformType === 'disappearing') {
+            setupDisappearingPlatform(platform);
+        }
+        
+        platforms.push(platform);
+        
+        // Create coin properly above the platform
+        const coin = createCoin(x, height + 1.5, z);
+        
+        lastX = x;
+        lastZ = z;
+        lastY = height;
+        lastGeneratedHeight = height;
+    }
+}
+
+function generateNewPlatforms() {
+    const config = INFINITY_CONFIG[infinityDifficulty];
+    let lastPlatform = platforms[platforms.length - 1];
+    let startHeight = lastGeneratedHeight + config.heightStep;
+    
+    for (let i = 0; i < config.newPlatformsCount; i++) {
+        const height = startHeight + (i * config.heightStep);
+        let platformType = 'normal';
+        
+        // Determine platform type based on difficulty
+        const rand = Math.random();
+        if (config.platformTypes.includes('moving') && config.platformTypes.includes('disappearing')) {
+            if (rand < config.movingPlatformChance) platformType = 'moving';
+            else if (rand < config.movingPlatformChance + config.disappearingPlatformChance) platformType = 'disappearing';
+        } else if (config.platformTypes.includes('moving')) {
+            if (rand < config.movingPlatformChance) platformType = 'moving';
+        }
+        
+        // Calculate new position using spiral pattern
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 3 + Math.random() * 3;
+        let x = Math.cos(angle) * radius;
+        let z = Math.sin(angle) * radius;
+        
+        // Create platform with config-specific width
+        const platform = createPlatform(x, height, config.platformWidth, 0.5, getPlatformColor(platformType));
+        platform.position.z = z; // Explicitly set Z position
+        
+        if (platformType === 'moving') {
+            setupMovingPlatform(platform, x, z);
+        } else if (platformType === 'disappearing') {
+            setupDisappearingPlatform(platform);
+        }
+        
+        platforms.push(platform);
+        
+        // Create and properly position coin above the platform
+        const coinY = height + 1.5; // Coin floats above platform
+        const coin = createCoin(x, coinY, z);
+        
+        lastGeneratedHeight = height;
+    }
+}
+
+function checkInfinityProgress() {
+    if (!isInfinityMode) return;
+    
+    const playerHeight = player.position.y;
+    const config = INFINITY_CONFIG[infinityDifficulty];
+    
+    // Generate new platforms when player reaches certain height
+    if (playerHeight > lastGeneratedHeight - (config.heightStep * 3)) {
+        generateNewPlatforms();
+        platformsCleared += config.newPlatformsCount;
+    }
+    
+    // Remove platforms that are too far below
+    // Only remove platforms if there are more than a minimum number
+    const minPlatformsToKeep = 20; // Keep at least 20 platforms at all times
+    
+    if (platforms.length > minPlatformsToKeep) {
+        const platformsToRemove = [];
+        // Increased distance to keep platforms visible much longer
+        const minHeight = playerHeight - 80; 
+        
+        for (let i = 0; i < platforms.length; i++) {
+            if (platforms[i].position.y < minHeight) {
+                platformsToRemove.push(i);
+                
+                // Also remove associated coins
+                coins.forEach((coin, coinIndex) => {
+                    if (coin && platforms[i] && 
+                        Math.abs(coin.position.y - platforms[i].position.y - 1.5) < 0.1) {
+                        scene.remove(coin);
+                        coins.splice(coinIndex, 1);
+                    }
+                });
+            }
+        }
+        
+        // Remove platforms from the end of the array
+        for (let i = platformsToRemove.length - 1; i >= 0; i--) {
+            const index = platformsToRemove[i];
+            const platform = platforms[index];
+            scene.remove(platform);
+            platforms.splice(index, 1);
+        }
+    }
+}
+
+function showInfinityGameOver() {
+    // Stop the animation loop
+    stopAnimation();
+    
+    // Update stats in the game over screen
+    document.getElementById('infinity-final-score').textContent = score;
+    document.getElementById('coins-collected').textContent = coinsCollected;
+    document.getElementById('infinity-difficulty').textContent = infinityDifficulty.charAt(0).toUpperCase() + infinityDifficulty.slice(1);
+    
+    // Get the game over screen element
+    const gameOverScreen = document.getElementById('infinity-game-over');
+    
+    // Display the screen
+    gameOverScreen.style.display = 'flex';
+    
+    // Add animation for smoother appearance
+    gameOverScreen.style.opacity = '0';
+    gameOverScreen.style.transform = 'translate(-50%, -50%) scale(0.8)';
+    
+    // Force reflow
+    gameOverScreen.offsetHeight;
+    
+    // Apply animation
+    gameOverScreen.style.transition = 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+    gameOverScreen.style.opacity = '1';
+    gameOverScreen.style.transform = 'translate(-50%, -50%) scale(1)';
+    
+    // Stop game
+    gameStarted = false;
+    canMove = false;
+}
+
+// Add event listeners for infinity mode
+document.getElementById('infinity-button').addEventListener('click', () => {
+    const username = document.getElementById('username-input').value.trim();
+    if (username) {
+        document.getElementById('infinity-mode-select').style.display = 'flex';
+    } else {
+        alert('Please enter your name to start the game');
+    }
+});
+
+document.getElementById('easy-mode').addEventListener('click', () => {
+    const username = document.getElementById('username-input').value.trim();
+    if (username) {
+        initInfinityMode('easy');
+    } else {
+        alert('Please enter your name to start the game');
+        document.getElementById('infinity-mode-select').style.display = 'none';
+    }
+});
+
+document.getElementById('medium-mode').addEventListener('click', () => {
+    const username = document.getElementById('username-input').value.trim();
+    if (username) {
+        initInfinityMode('medium');
+    } else {
+        alert('Please enter your name to start the game');
+        document.getElementById('infinity-mode-select').style.display = 'none';
+    }
+});
+
+document.getElementById('hard-mode').addEventListener('click', () => {
+    const username = document.getElementById('username-input').value.trim();
+    if (username) {
+        initInfinityMode('hard');
+    } else {
+        alert('Please enter your name to start the game');
+        document.getElementById('infinity-mode-select').style.display = 'none';
+    }
+});
+
+document.getElementById('infinity-restart-button').addEventListener('click', () => {
+    const gameOverScreen = document.getElementById('infinity-game-over');
+    
+    // Animate out
+    gameOverScreen.style.opacity = '0';
+    gameOverScreen.style.transform = 'translate(-50%, -50%) scale(0.8)';
+    
+    // Hide after animation completes
+    setTimeout(() => {
+        gameOverScreen.style.display = 'none';
+        // Reset transform for next time
+        gameOverScreen.style.transform = '';
+        // Restart with same difficulty
+        initInfinityMode(infinityDifficulty);
+    }, 400);
+});
+
+// Helper function to get platform color
+function getPlatformColor(type) {
+    switch (type) {
+        case 'moving':
+            return 0x2196F3; // Blue
+        case 'disappearing':
+            return 0xf44336; // Red
+        default:
+            return 0x228B22; // Green
+    }
+}
+
+// Add these functions before createInfinityLevel
+function setupMovingPlatform(platform, x, z) {
+    // Add movement properties
+    const movement = {
+        center: new THREE.Vector3(x, platform.position.y, z),
+        amplitude: 2,
+        speed: 0.02,
+        time: Math.random() * Math.PI * 2, // Random start phase
+        axis: Math.random() < 0.5 ? 'x' : 'z' // Randomly choose movement axis
+    };
+    
+    movingPlatforms.push({ platform, movement });
+    return platform;
+}
+
+function setupDisappearingPlatform(platform) {
+    platformStates.set(platform.id, {
+        visible: true,
+        timeoutId: null,
+        cooldown: false
+    });
+    
+    return platform;
+}
+
+// Show game over screen for regular mode
+function showGameOver() {
+    // Stop the animation loop
+    stopAnimation();
+    
+    // Update final score in the game over screen
+    document.getElementById('final-score').textContent = `Final Score: ${score}`;
+    
+    // Get the game over screen element
+    const gameOverScreen = document.getElementById('game-over');
+    
+    // Display the screen
+    gameOverScreen.style.display = 'flex';
+    
+    // Stop game
+    gameStarted = false;
+    canMove = false;
+}
+
+// Add event listener for regular game restart button
+document.getElementById('restart-button').addEventListener('click', () => {
+    document.getElementById('game-over').style.display = 'none';
+    
+    // Reset to level 1
+    currentLevel = 1;
+    
+    // Reset game state
+    resetGameState();
+    
+    // Create new level
+    createLevel(currentLevel);
+    
+    // Update UI
+    updateLevelDisplay();
+    
+    // Reset player position
+    resetPlayer();
+    
+    // Reset score and coins
+    score = 0;
+    coinsCollected = 0;
+    updateUI();
+    
+    // Start the game again
+    gameStarted = true;
+    canMove = true;
+    
+    // Restart animation
+    startAnimation();
+}); 

@@ -15,7 +15,10 @@
             <h1>3D Jumper</h1>
             <h2>Enter your name to start</h2>
             <input type="text" id="username-input" placeholder="Your Name">
-            <button id="start-button">Start Game</button>
+            <div class="game-mode-buttons">
+                <button id="start-button">Levels Mode</button>
+                <button id="infinity-button">Infinity Mode</button>
+            </div>
             
             <div id="game-instructions">
                 <div class="instructions-section">
@@ -81,6 +84,26 @@
         <h2>Game Over</h2>
         <div id="final-score"></div>
         <button id="restart-button">Play Again</button>
+    </div>
+
+    <div id="infinity-mode-select" class="overlay" style="display: none;">
+        <h2>Select Difficulty</h2>
+        <div class="difficulty-buttons">
+            <button id="easy-mode">Easy</button>
+            <button id="medium-mode">Medium</button>
+            <button id="hard-mode">Hard</button>
+        </div>
+    </div>
+
+    <div id="infinity-game-over" class="overlay" style="display: none;">
+        <h2>Game Over</h2>
+        <div id="infinity-stats">
+            <div>Final Score: <span id="infinity-final-score">0</span></div>
+            <div>Coins Collected: <span id="coins-collected">0</span></div>
+            <div>Difficulty: <span id="infinity-difficulty">Easy</span></div>
+        </div>
+        <p>You fell from the platforms! Try again?</p>
+        <button id="infinity-restart-button">Play Again</button>
     </div>
 
     <div id="mobile-controls">
