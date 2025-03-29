@@ -115,6 +115,123 @@ const LEVEL_CONFIG = {
     }
 };
 
+// Initialize Supabase (add your config)
+// const supabaseUrl = 'https://your-supabase-url.supabase.co';
+// const supabaseKey = 'your-supabase-key';
+// const supabase = createClient(supabaseUrl, supabaseKey);
+// const db = supabase.from('leaderboard');
+
+// Update leaderboard functions to use Supabase
+async function submitScore(playerName, score, coins, difficulty) {
+    if (!playerName || !playerName.trim()) {
+        console.error('Player name is required');
+        return;
+    }
+    
+    try {
+        console.log('Submitting score:', { playerName, score, coins, difficulty });
+        if (typeof window.dbPush !== 'function') {
+            console.error('dbPush is not a function. Type:', typeof window.dbPush);
+            return;
+        }
+        
+        const result = await window.dbPush(window.dbRef(), {
+            playerName: playerName,
+            score: score,
+            coins: coins,
+            difficulty: difficulty
+        });
+        console.log('Score submitted successfully', result);
+    } catch (error) {
+        console.error('Error submitting score:', error);
+    }
+}
+
+async function loadLeaderboard(difficulty = 'easy') {
+    try {
+        console.log('loadLeaderboard called for difficulty:', difficulty);
+        const leaderboardRef = window.dbRef();
+        leaderboardRef.difficulty = difficulty;
+        
+        console.log('Calling dbOnValue with ref:', leaderboardRef);
+        await window.dbOnValue(leaderboardRef, (snapshot) => {
+            console.log('dbOnValue callback received snapshot');
+            const entries = [];
+            snapshot.forEach((child) => {
+                console.log('Processing child:', child.key, child.val());
+                entries.push({
+                    id: child.key,
+                    ...child.val()
+                });
+            });
+            
+            console.log('Processed entries:', entries);
+            updateLeaderboardUI(entries);
+        });
+    } catch (error) {
+        console.error('Error loading leaderboard:', error);
+    }
+}
+
+function updateLeaderboardUI(entries) {
+    console.log('updateLeaderboardUI called with entries:', entries);
+    const tbody = document.getElementById('leaderboard-body');
+    if (!tbody) {
+        console.error('Leaderboard tbody element not found!');
+        return;
+    }
+    
+    // Clear existing entries
+    tbody.innerHTML = '';
+    
+    if (!entries || entries.length === 0) {
+        console.log('No entries to display in leaderboard');
+        tbody.innerHTML = '<tr><td colspan="4">No scores yet. Be the first!</td></tr>';
+        return;
+    }
+    
+    // Add each entry to the table
+    entries.forEach((entry, index) => {
+        console.log('Adding entry to leaderboard:', entry);
+        const row = document.createElement('tr');
+        
+        // Format the player name (limit length if needed)
+        const playerName = entry.playerName || 'Unknown';
+        const displayName = playerName.length > 15 ? playerName.substring(0, 12) + '...' : playerName;
+        
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${displayName}</td>
+            <td>${entry.score}</td>
+            <td>${entry.coins}</td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    console.log('Updated leaderboard UI with', entries.length, 'entries');
+}
+
+// Add event listeners for leaderboard tabs
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('Setting up leaderboard tab listeners');
+    const tabButtons = document.querySelectorAll('.tab-button');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            console.log('Tab clicked:', button.dataset.difficulty);
+            
+            // Update active tab
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            
+            // Load leaderboard for selected difficulty
+            const difficulty = button.dataset.difficulty;
+            console.log('Loading leaderboard for difficulty:', difficulty);
+            loadLeaderboard(difficulty);
+        });
+    });
+});
+
 // Initialize Three.js scene
 function init() {
     try {
@@ -823,9 +940,11 @@ function update() {
     velocity += gravity;
     player.position.y += velocity;
 
-    // Check for ground collision (game over in infinity mode)
-    if (player.position.y <= 0) {
-        player.position.y = 0; // Prevent falling through ground
+    // Check for ground collision
+    if (player.position.y <= 0.5) { // Changed from 0 to 0.5 to account for player height
+        player.position.y = 0.5; // Keep player at ground level
+        velocity = 0;
+        isJumping = false; // Allow jumping again when on ground
         
         if (isInfinityMode) {
             // Game over - hit the ground
@@ -863,7 +982,12 @@ function update() {
     }
 
     // Check platform collisions
-    checkPlatformCollisions();
+    const onPlatform = checkPlatformCollisions();
+    
+    // Only set isJumping to false if we're on a platform or the ground
+    if (onPlatform || player.position.y <= 0.5) {
+        isJumping = false;
+    }
 
     // Check if player has fallen below a certain threshold
     if (player.position.y < -10) {
@@ -951,25 +1075,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (startButton) {
         startButton.addEventListener('click', () => {
             console.log('Start button clicked');
-            const username = document.getElementById('username-input').value.trim();
-            if (username) {
-                document.getElementById('start-screen').style.display = 'none';
-                document.getElementById('game-ui').style.display = 'block'; // Show the game UI
-                if (!gameStarted) {
-                    if (init()) {
-                        gameStarted = true;
-                        // Initialize score display
-                        score = 0;
-                        coinsCollected = 0;
-                        updateUI();
-                        
-                        // Start animation with the new function
-                        startAnimation();
-                        console.log('Game started successfully');
-                    }
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-ui').style.display = 'block'; // Show the game UI
+            if (!gameStarted) {
+                if (init()) {
+                    gameStarted = true;
+                    // Initialize score display
+                    score = 0;
+                    coinsCollected = 0;
+                    updateUI();
+                    
+                    // Start animation with the new function
+                    startAnimation();
+                    console.log('Game started successfully');
                 }
-            } else {
-                alert('Please enter your name to start the game');
             }
         });
     } else {
@@ -1546,74 +1665,6 @@ function initInfinityMode(difficulty) {
     startAnimation();
 }
 
-function createInfinityLevel() {
-    const config = INFINITY_CONFIG[infinityDifficulty];
-    
-    // Create first platform
-    const firstPlatform = createPlatform(0, 2, config.platformWidth, 0.5, 0x228B22);
-    firstPlatform.position.z = 0;
-    platforms.push(firstPlatform);
-    const firstCoin = createCoin(0, 3.5, 0);
-    
-    let lastX = 0;
-    let lastZ = 0;
-    let lastY = 2;
-    
-    // Generate initial platforms
-    for (let i = 1; i < config.initialPlatforms; i++) {
-        const height = lastY + config.heightStep;
-        let platformType = 'normal';
-        
-        // Determine platform type based on difficulty
-        if (i > 2) {
-            const rand = Math.random();
-            if (config.platformTypes.includes('moving') && config.platformTypes.includes('disappearing')) {
-                if (rand < config.movingPlatformChance) platformType = 'moving';
-                else if (rand < config.movingPlatformChance + config.disappearingPlatformChance) platformType = 'disappearing';
-            } else if (config.platformTypes.includes('moving')) {
-                if (rand < config.movingPlatformChance) platformType = 'moving';
-            }
-        }
-        
-        // Calculate new position using spiral pattern
-        const angle = (i / config.initialPlatforms) * Math.PI * 2 + Math.random() * 0.5;
-        const radius = (i / config.initialPlatforms) * 6;
-        let x = Math.cos(angle) * radius;
-        let z = Math.sin(angle) * radius;
-        
-        // Ensure minimum distance from previous platform
-        const dx = x - lastX;
-        const dz = z - lastZ;
-        const distance = Math.sqrt(dx * dx + dz * dz);
-        
-        if (distance < PLATFORM_SPACING.MIN_HORIZONTAL) {
-            const scale = PLATFORM_SPACING.MIN_HORIZONTAL / distance;
-            x = lastX + dx * scale;
-            z = lastZ + dz * scale;
-        }
-        
-        // Create platform with config-specific width
-        const platform = createPlatform(x, height, config.platformWidth, 0.5, getPlatformColor(platformType));
-        platform.position.z = z; // Ensure z position is set
-        
-        if (platformType === 'moving') {
-            setupMovingPlatform(platform, x, z);
-        } else if (platformType === 'disappearing') {
-            setupDisappearingPlatform(platform);
-        }
-        
-        platforms.push(platform);
-        
-        // Create coin properly above the platform
-        const coin = createCoin(x, height + 1.5, z);
-        
-        lastX = x;
-        lastZ = z;
-        lastY = height;
-        lastGeneratedHeight = height;
-    }
-}
-
 function generateNewPlatforms() {
     const config = INFINITY_CONFIG[infinityDifficulty];
     let lastPlatform = platforms[platforms.length - 1];
@@ -1632,15 +1683,14 @@ function generateNewPlatforms() {
             if (rand < config.movingPlatformChance) platformType = 'moving';
         }
         
-        // Calculate new position using spiral pattern
-        const angle = Math.random() * Math.PI * 2;
-        const radius = 3 + Math.random() * 3;
-        let x = Math.cos(angle) * radius;
-        let z = Math.sin(angle) * radius;
+        // Calculate new position relative to the last platform
+        const maxOffset = 4; // Maximum distance from last platform
+        const x = lastPlatform ? lastPlatform.position.x + (Math.random() * maxOffset * 2 - maxOffset) : 0;
+        const z = lastPlatform ? lastPlatform.position.z + (Math.random() * maxOffset * 2 - maxOffset) : 0;
         
         // Create platform with config-specific width
         const platform = createPlatform(x, height, config.platformWidth, 0.5, getPlatformColor(platformType));
-        platform.position.z = z; // Explicitly set Z position
+        platform.position.z = z;
         
         if (platformType === 'moving') {
             setupMovingPlatform(platform, x, z);
@@ -1649,9 +1699,10 @@ function generateNewPlatforms() {
         }
         
         platforms.push(platform);
+        lastPlatform = platform;
         
         // Create and properly position coin above the platform
-        const coinY = height + 1.5; // Coin floats above platform
+        const coinY = height + 1.5;
         const coin = createCoin(x, coinY, z);
         
         lastGeneratedHeight = height;
@@ -1707,75 +1758,178 @@ function checkInfinityProgress() {
 function showInfinityGameOver() {
     // Stop the animation loop
     stopAnimation();
-    
-    // Update stats in the game over screen
-    document.getElementById('infinity-final-score').textContent = score;
-    document.getElementById('coins-collected').textContent = coinsCollected;
-    document.getElementById('infinity-difficulty').textContent = infinityDifficulty.charAt(0).toUpperCase() + infinityDifficulty.slice(1);
-    
-    // Get the game over screen element
-    const gameOverScreen = document.getElementById('infinity-game-over');
-    
-    // Display the screen
-    gameOverScreen.style.display = 'flex';
-    
-    // Add animation for smoother appearance
-    gameOverScreen.style.opacity = '0';
-    gameOverScreen.style.transform = 'translate(-50%, -50%) scale(0.8)';
-    
-    // Force reflow
-    gameOverScreen.offsetHeight;
-    
-    // Apply animation
-    gameOverScreen.style.transition = 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-    gameOverScreen.style.opacity = '1';
-    gameOverScreen.style.transform = 'translate(-50%, -50%) scale(1)';
-    
-    // Stop game
     gameStarted = false;
-    canMove = false;
+    
+    // Calculate final score
+    const finalScore = score + (coinsCollected * INFINITY_CONFIG[infinityDifficulty].coinValue);
+    
+    // Update UI
+    document.getElementById('infinity-coins').textContent = coinsCollected;
+    document.getElementById('infinity-score').textContent = finalScore;
+    
+    // Show game over screen
+    document.getElementById('infinity-game-over').style.display = 'flex';
+    
+    // Focus on the name input
+    const playerNameInput = document.getElementById('player-name');
+    playerNameInput.focus();
+    playerNameInput.value = ''; // Clear previous input
+    
+    // Reset button states
+    const submitButton = document.getElementById('submit-score-btn');
+    submitButton.disabled = false;
+    submitButton.textContent = 'Submit Score';
+    
+    // Set up submit button
+    document.getElementById('submit-score-btn').onclick = async function() {
+        const playerName = document.getElementById('player-name').value;
+        if (!playerName.trim()) {
+            alert('Please enter your name');
+            return;
+        }
+        
+        try {
+            console.log('Submitting score with:', { 
+                playerName, 
+                score: finalScore, 
+                coins: coinsCollected, 
+                difficulty: infinityDifficulty 
+            });
+            
+            await submitScore(playerName, finalScore, coinsCollected, infinityDifficulty);
+            
+            // Disable button after submission
+            document.getElementById('submit-score-btn').disabled = true;
+            document.getElementById('submit-score-btn').textContent = 'Score Submitted!';
+            playerNameInput.disabled = true;
+            
+            // Reload leaderboard with current difficulty
+            loadLeaderboard(infinityDifficulty);
+        } catch (error) {
+            console.error('Failed to submit score:', error);
+            alert('Failed to submit score. Please try again.');
+        }
+    };
+    
+    // Set up restart button with full game reset
+    document.getElementById('infinity-restart-btn').onclick = function() {
+        document.getElementById('infinity-game-over').style.display = 'none';
+        
+        // Reset game state
+        score = 0;
+        coinsCollected = 0;
+        updateUI();
+        
+        // Reset player position
+        player.position.set(0, 5, 0);
+        velocity = 0;
+        
+        // Clear and recreate level
+        clearLevel();
+        createInfinityLevel();
+        
+        // Restart game
+        gameStarted = true;
+        startAnimation();
+    };
 }
 
-// Add event listeners for infinity mode
-document.getElementById('infinity-button').addEventListener('click', () => {
-    const username = document.getElementById('username-input').value.trim();
-    if (username) {
-        document.getElementById('infinity-mode-select').style.display = 'flex';
-    } else {
-        alert('Please enter your name to start the game');
+function createInfinityLevel() {
+    const config = INFINITY_CONFIG[infinityDifficulty];
+    
+    // Create first platform
+    const firstPlatform = createPlatform(0, 2, config.platformWidth, 0.5, 0x228B22);
+    firstPlatform.position.z = 0;
+    platforms.push(firstPlatform);
+    const firstCoin = createCoin(0, 3.5, 0);
+    
+    let lastX = 0;
+    let lastZ = 0;
+    let lastY = 2;
+    
+    // Generate initial platforms
+    for (let i = 1; i < config.initialPlatforms; i++) {
+        const height = lastY + config.heightStep;
+        let platformType = 'normal';
+        
+        // Determine platform type based on difficulty
+        const rand = Math.random();
+        if (config.platformTypes.includes('moving') && config.platformTypes.includes('disappearing')) {
+            if (rand < config.movingPlatformChance) platformType = 'moving';
+            else if (rand < config.movingPlatformChance + config.disappearingPlatformChance) platformType = 'disappearing';
+        } else if (config.platformTypes.includes('moving')) {
+            if (rand < config.movingPlatformChance) platformType = 'moving';
+        }
+        
+        // Calculate new position relative to the last platform
+        const maxOffset = 4; // Maximum distance from last platform
+        const x = lastX + (Math.random() * maxOffset * 2 - maxOffset);
+        const z = lastZ + (Math.random() * maxOffset * 2 - maxOffset);
+        
+        // Create platform with config-specific width
+        const platform = createPlatform(x, height, config.platformWidth, 0.5, getPlatformColor(platformType));
+        platform.position.z = z;
+        
+        if (platformType === 'moving') {
+            setupMovingPlatform(platform, x, z);
+        } else if (platformType === 'disappearing') {
+            setupDisappearingPlatform(platform);
+        }
+        
+        platforms.push(platform);
+        
+        // Create coin properly above the platform
+        const coin = createCoin(x, height + 1.5, z);
+        
+        lastX = x;
+        lastZ = z;
+        lastY = height;
+        lastGeneratedHeight = height;
     }
+}
+
+function setupMovingPlatform(platform, x, z) {
+    // Add movement properties
+    const movement = {
+        center: new THREE.Vector3(x, platform.position.y, z),
+        amplitude: 2,
+        speed: 0.02,
+        time: Math.random() * Math.PI * 2, // Random start phase
+        axis: Math.random() < 0.5 ? 'x' : 'z' // Randomly choose movement axis
+    };
+    
+    movingPlatforms.push({ platform, movement });
+    return platform;
+}
+
+function setupDisappearingPlatform(platform) {
+    platformStates.set(platform.id, {
+        visible: true,
+        timeoutId: null,
+        cooldown: false
+    });
+    
+    return platform;
+}
+
+// Update infinity mode button click handlers
+document.getElementById('infinity-button').addEventListener('click', () => {
+    document.getElementById('infinity-mode-select').style.display = 'flex';
 });
 
 document.getElementById('easy-mode').addEventListener('click', () => {
-    const username = document.getElementById('username-input').value.trim();
-    if (username) {
-        initInfinityMode('easy');
-    } else {
-        alert('Please enter your name to start the game');
-        document.getElementById('infinity-mode-select').style.display = 'none';
-    }
+    initInfinityMode('easy');
 });
 
 document.getElementById('medium-mode').addEventListener('click', () => {
-    const username = document.getElementById('username-input').value.trim();
-    if (username) {
-        initInfinityMode('medium');
-    } else {
-        alert('Please enter your name to start the game');
-        document.getElementById('infinity-mode-select').style.display = 'none';
-    }
+    initInfinityMode('medium');
 });
 
 document.getElementById('hard-mode').addEventListener('click', () => {
-    const username = document.getElementById('username-input').value.trim();
-    if (username) {
-        initInfinityMode('hard');
-    } else {
-        alert('Please enter your name to start the game');
-        document.getElementById('infinity-mode-select').style.display = 'none';
-    }
+    initInfinityMode('hard');
 });
 
+// Add event listeners for infinity mode
 document.getElementById('infinity-restart-button').addEventListener('click', () => {
     const gameOverScreen = document.getElementById('infinity-game-over');
     
@@ -1803,31 +1957,6 @@ function getPlatformColor(type) {
         default:
             return 0x228B22; // Green
     }
-}
-
-// Add these functions before createInfinityLevel
-function setupMovingPlatform(platform, x, z) {
-    // Add movement properties
-    const movement = {
-        center: new THREE.Vector3(x, platform.position.y, z),
-        amplitude: 2,
-        speed: 0.02,
-        time: Math.random() * Math.PI * 2, // Random start phase
-        axis: Math.random() < 0.5 ? 'x' : 'z' // Randomly choose movement axis
-    };
-    
-    movingPlatforms.push({ platform, movement });
-    return platform;
-}
-
-function setupDisappearingPlatform(platform) {
-    platformStates.set(platform.id, {
-        visible: true,
-        timeoutId: null,
-        cooldown: false
-    });
-    
-    return platform;
 }
 
 // Show game over screen for regular mode
@@ -1876,7 +2005,7 @@ document.getElementById('restart-button').addEventListener('click', () => {
     // Start the game again
     gameStarted = true;
     canMove = true;
-    
+
     // Restart animation
     startAnimation();
 }); 
