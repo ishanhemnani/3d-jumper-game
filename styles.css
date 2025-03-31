@@ -6,9 +6,11 @@
 
 body {
     overflow: hidden;
-    background: #000;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: white;
+    background: #0b0b0b;
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #ffffff;
+    overflow: hidden;
+    line-height: 1.5;
 }
 
 #game-container {
@@ -38,13 +40,13 @@ body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    background: rgba(0, 0, 0, 0.85);
+    background: rgba(11, 11, 11, 0.9);
     z-index: 100;
 }
 
 /* Only apply the background to start-screen and game-over overlays */
 #start-screen.overlay, #game-over.overlay {
-    background: rgba(0, 0, 0, 0.85);
+    background: rgba(11, 11, 11, 0.9);
 }
 
 /* For level-complete, position in center without full-screen background */
@@ -70,7 +72,7 @@ body {
 }
 
 #score-container, #coins-container {
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(26, 26, 26, 0.8);
     padding: 15px 25px;
     border-radius: 10px;
     margin-bottom: 15px;
@@ -83,7 +85,7 @@ body {
 }
 
 #score-value, #coins-value {
-    color: #4CAF50;
+    color: #14F195;
     margin-left: 10px;
 }
 
@@ -93,7 +95,7 @@ body {
     align-items: center;
     padding: 20px;
     color: white;
-    background: rgba(0, 0, 0, 0.85);
+    background: linear-gradient(to bottom, #1a1a1a, #0b0b0b);
     max-height: 100vh;
     overflow: hidden;
 }
@@ -101,20 +103,22 @@ body {
 #start-screen h1 {
     font-size: 3em;
     margin-bottom: 20px;
-    color: #4CAF50;
+    color: #ffffff;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    padding-top: 40px;
+    margin-top: 20px;
 }
 
 #start-screen h2 {
     font-size: 24px;
     margin: 10px 0 20px;
-    color: #4CAF50;
+    color: #14F195;
 }
 
 #start-screen h3 {
     font-size: 22px;
     margin: 20px 0 15px;
-    color: #4CAF50;
+    color: #14F195;
     text-align: center;
     position: relative;
 }
@@ -124,7 +128,7 @@ body {
     display: block;
     width: 60px;
     height: 3px;
-    background: #4CAF50;
+    background: #14F195;
     margin: 10px auto 0;
     border-radius: 3px;
 }
@@ -141,7 +145,7 @@ body {
 }
 
 .instructions-section h3 {
-    color: #4CAF50;
+    color: #14F195;
     margin-bottom: 15px;
     font-size: 1.5em;
 }
@@ -159,13 +163,14 @@ body {
 }
 
 .key {
-    background: #333;
+    background: #1a1a1a;
     padding: 5px 10px;
     border-radius: 5px;
     font-family: monospace;
     margin-right: 5px;
     min-width: 20px;
     text-align: center;
+    color: #ffffff;
 }
 
 .platform-types {
@@ -186,10 +191,10 @@ body {
     border-radius: 3px;
 }
 
-.platform-color.green { background: #228B22; }
-.platform-color.blue { background: #1E90FF; }
-.platform-color.red { background: #FF6B6B; }
-.platform-color.gold { background: #FFD700; }
+.platform-color.black { background: #1f1f1f; }
+.platform-color.purple { background: #9945FF; }
+.platform-color.green { background: #14F195; }
+.platform-color.yellow { background: #F3BA2F; }
 
 #username-input {
     display: block;
@@ -197,7 +202,7 @@ body {
     padding: 15px;
     font-size: 18px;
     width: 250px;
-    border: 2px solid #4CAF50;
+    border: 2px solid #14F195;
     border-radius: 5px;
     background: rgba(255, 255, 255, 0.9);
     color: #333;
@@ -206,8 +211,8 @@ body {
 #start-button {
     padding: 15px 30px;
     font-size: 20px;
-    background: #4CAF50;
-    color: white;
+    background: #14F195;
+    color: black;
     border: none;
     border-radius: 5px;
     cursor: pointer;
@@ -243,18 +248,19 @@ body {
     padding: 8px 16px;
     border: none;
     border-radius: 5px;
-    background: #333;
+    background: #1a1a1a;
     color: white;
     cursor: pointer;
     transition: background-color 0.3s;
 }
 
 .tab-button:hover {
-    background: #444;
+    background: #2a2a2a;
 }
 
 .tab-button.active {
-    background: #4CAF50;
+    background: #9945FF;
+    color: white;
 }
 
 .leaderboard-content {
@@ -278,7 +284,7 @@ body {
 #leaderboard-table th {
     background: rgba(0, 0, 0, 0.3);
     font-weight: bold;
-    color: #4CAF50;
+    color: #14F195;
 }
 
 #leaderboard-table tr:hover {
@@ -354,14 +360,14 @@ body {
 }
 
 .stat-value.highlight {
-    color: #4CAF50;
+    color: #14F195;
     font-size: 26px;
     text-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
 }
 
 .animate-value {
     animation: pulse-green 1.5s infinite;
-    color: #4CAF50;
+    color: #14F195;
 }
 
 @keyframes pulse-green {
@@ -380,7 +386,7 @@ body {
 }
 
 #next-level-button {
-    background-color: #4CAF50;
+    background-color: #9945FF;
     color: white;
     font-size: 18px;
     padding: 14px 28px;
@@ -414,7 +420,7 @@ body {
 #joystick {
     width: 120px;
     height: 120px;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(26, 26, 26, 0.5);
     border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 50%;
     backdrop-filter: blur(5px);
@@ -432,13 +438,13 @@ body {
     max-width: 500px;
     width: 90%;
     box-shadow: 0 10px 35px rgba(0, 0, 0, 0.85);
-    border: 2px solid #4CAF50;
+    border: 2px solid #14F195;
     z-index: 1500;
     backdrop-filter: blur(10px);
 }
 
 #level-complete h2 {
-    color: #4CAF50;
+    color: #14F195;
     font-size: 36px;
     margin-bottom: 30px;
     text-shadow: 0 0 8px rgba(76, 175, 80, 0.5);
@@ -450,7 +456,7 @@ body {
     display: block;
     width: 80px;
     height: 4px;
-    background: #4CAF50;
+    background: #14F195;
     position: absolute;
     bottom: -12px;
     left: 50%;
@@ -469,7 +475,7 @@ body {
     left: 50%;
     transform: translateX(-50%);
     background-color: rgba(0, 0, 0, 0.7);
-    color: #4CAF50;
+    color: #14F195;
     padding: 10px 20px;
     border-radius: 5px;
     font-size: 24px;
@@ -496,7 +502,7 @@ body {
     max-width: 550px;
     width: 90%;
     box-shadow: 0 10px 35px rgba(0, 0, 0, 0.85);
-    border: 2px solid #4CAF50;
+    border: 2px solid #14F195;
     z-index: 1500;
     backdrop-filter: blur(10px);
 }
@@ -504,7 +510,7 @@ body {
 #game-complete h2 {
     font-size: 36px;
     margin-bottom: 30px;
-    color: #4CAF50;
+    color: #14F195;
     text-shadow: 0 0 8px rgba(76, 175, 80, 0.5);
     position: relative;
 }
@@ -514,7 +520,7 @@ body {
     display: block;
     width: 80px;
     height: 4px;
-    background: #4CAF50;
+    background: #14F195;
     position: absolute;
     bottom: -12px;
     left: 50%;
@@ -544,7 +550,7 @@ body {
 }
 
 .highlight {
-    color: #4CAF50;
+    color: #14F195;
     font-weight: bold;
     font-size: 24px;
     text-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
@@ -635,7 +641,7 @@ body {
 
 /* Replay button specific styles */
 .replay-btn {
-    background-color: #4CAF50; /* Green */
+    background-color: #14F195; /* Green */
 }
 
 .replay-btn:hover {
@@ -678,13 +684,13 @@ body {
     z-index: 2000;
     backdrop-filter: blur(10px);
     box-shadow: 0 10px 35px rgba(0, 0, 0, 0.85);
-    border: 2px solid #4CAF50;
+    border: 2px solid #14F195;
     /* We'll handle the animation in JS */
     opacity: 1;
 }
 
 #screenshot-message h3 {
-    color: #4CAF50;
+    color: #14F195;
     margin-bottom: 25px;
     font-size: 28px;
     text-shadow: 0 0 8px rgba(76, 175, 80, 0.5);
@@ -696,7 +702,7 @@ body {
     display: block;
     width: 60px;
     height: 3px;
-    background: #4CAF50;
+    background: #14F195;
     position: absolute;
     bottom: -12px;
     left: 50%;
@@ -743,8 +749,8 @@ body {
 }
 
 #download-screenshot-btn, #close-message-btn, #open-twitter-btn {
-    background-color: #4CAF50;
-    color: white;
+    background-color: #14F195;
+    color: black;
     border: none;
     padding: 12px 20px;
     margin: 5px;
@@ -806,8 +812,8 @@ body {
     font-size: 1.2em;
     border: none;
     border-radius: 8px;
-    background: #4CAF50;
-    color: white;
+    background: #14F195;
+    color: black;
     cursor: pointer;
     transition: all 0.3s ease;
     text-transform: uppercase;
@@ -850,18 +856,18 @@ body {
 }
 
 #easy-mode {
-    background-color: #4CAF50;
-    color: white;
+    background-color: #14F195;
+    color: black;
 }
 
 #medium-mode {
-    background-color: #2196F3;
+    background-color: #9945FF;
     color: white;
 }
 
 #hard-mode {
-    background-color: #f44336;
-    color: white;
+    background-color: #F3BA2F;
+    color: black;
 }
 
 #infinity-game-over {
@@ -888,7 +894,7 @@ body {
     font-size: 36px;
     margin-top: 0;
     margin-bottom: 25px;
-    color: #4CAF50;
+    color: #14F195;
     text-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
     font-weight: bold;
 }
@@ -923,14 +929,14 @@ body {
 }
 
 #infinity-stats span {
-    color: #4CAF50;
+    color: #14F195;
     font-weight: bold;
     font-size: 22px;
 }
 
 #submit-score-btn, #infinity-restart-btn {
-    background-color: #4CAF50;
-    color: white;
+    background-color: #14F195;
+    color: black;
     padding: 15px 30px;
     border: none;
     border-radius: 8px;
@@ -958,7 +964,7 @@ body {
 
 #player-name {
     padding: 12px 15px;
-    border: 2px solid #4CAF50;
+    border: 2px solid #14F195;
     border-radius: 8px;
     background: rgba(0, 0, 0, 0.3);
     color: #fff;
@@ -1006,8 +1012,8 @@ body {
 
 /* Green button style for home buttons */
 .green-button {
-    background-color: #4CAF50;
-    color: white;
+    background-color: #14F195;
+    color: black;
     border: none;
     padding: 10px 15px;
     text-align: center;
@@ -1017,11 +1023,12 @@ body {
     margin: 10px 5px;
     cursor: pointer;
     border-radius: 5px;
-    transition: background-color 0.3s;
+    transition: opacity 0.3s;
+    font-weight: 600;
 }
 
 .green-button:hover {
-    background-color: #45a049;
+    opacity: 0.8;
 }
 
 /* Style for home button in game UI */
@@ -1034,12 +1041,21 @@ body {
 }
 
 #home-button {
-    font-size: 14px;
-    padding: 5px 10px;
+    font-size: 16px;
+    padding: 10px 15px;
     position: absolute;
-    top: 140px;
-    right: 100px;
+    top: 160px;
+    right: 90px;
     z-index: 10001; /* Increased z-index to be higher than any other element */
     margin: 0;
     pointer-events: auto; /* Ensure clicks are captured */
+}
+
+/* Solana logo */
+.solana-logo {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 150px;
+    opacity: 0.8;
 }

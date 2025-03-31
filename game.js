@@ -237,7 +237,8 @@ function init() {
     try {
         // Initialize scene
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB); // Sky blue
+        scene.background = new THREE.Color(0x0b0b0b); // Dark background for night sky
+        scene.fog = new THREE.Fog(0x0b0b0b, 20, 100); // Dark fog for night effect
         
         // Initialize camera
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -250,35 +251,102 @@ function init() {
             antialias: true
         });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setClearColor(0x87CEEB, 1); // Sky blue background
-
+        renderer.setClearColor(0x0b0b0b, 1); // Dark background for night sky
+        
         // Create player
         const playerGeometry = new THREE.BoxGeometry(1, 1, 1);
-        const playerMaterial = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
+        const playerMaterial = new THREE.MeshPhongMaterial({ color: 0x9945FF }); // Changed from green to Solana purple
         player = new THREE.Mesh(playerGeometry, playerMaterial);
         player.position.set(0, 5, 0);
         scene.add(player);
 
         // Add ground
         const groundGeometry = new THREE.PlaneGeometry(100, 100);
-        const groundMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x228B22,
-            roughness: 0.8,
-            metalness: 0.2
+        const groundMaterial = new THREE.MeshPhongMaterial({
+            color: 0x1a1a1a,
+            side: THREE.DoubleSide
         });
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
         ground.rotation.x = -Math.PI / 2;
         ground.position.y = -1;
         scene.add(ground);
 
-        // Add lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        // Add ambient light for night scene
+        const ambientLight = new THREE.AmbientLight(0x333333, 0.4); // Reduced intensity
         scene.add(ambientLight);
         
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(10, 20, 10);
+        // Add directional light (moonlight)
+        const directionalLight = new THREE.DirectionalLight(0xaaaaff, 0.3); // Reduced intensity
+        directionalLight.position.set(5, 10, 5);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 1024;
+        directionalLight.shadow.mapSize.height = 1024;
         scene.add(directionalLight);
 
+        // Add point lights for Solana-themed lighting
+        const purpleLight = new THREE.PointLight(0x9945FF, 0.8, 30); // Reduced intensity
+        purpleLight.position.set(5, 5, 5);
+        scene.add(purpleLight);
+
+        const greenLight = new THREE.PointLight(0x14F195, 0.8, 30); // Reduced intensity
+        greenLight.position.set(-5, 5, -5);
+        scene.add(greenLight);
+        
+        // Add additional spotlights to highlight platforms
+        const spotLight1 = new THREE.SpotLight(0xffffff, 0.3); // Reduced intensity
+        spotLight1.position.set(0, 15, 0);
+        spotLight1.angle = Math.PI / 6;
+        spotLight1.penumbra = 0.2;
+        spotLight1.decay = 1;
+        spotLight1.distance = 50;
+        spotLight1.castShadow = true;
+        scene.add(spotLight1);
+        
+        // Add a yellow spotlight for additional accent lighting
+        const spotLight2 = new THREE.SpotLight(0xF3BA2F, 0.6); // Reduced intensity
+        spotLight2.position.set(-10, 10, -10);
+        spotLight2.angle = Math.PI / 8;
+        spotLight2.penumbra = 0.3;
+        spotLight2.decay = 1;
+        spotLight2.distance = 40;
+        spotLight2.castShadow = true;
+        scene.add(spotLight2);
+        
+        // Create a follow light that moves with the player to illuminate platforms above
+        const followLight = new THREE.SpotLight(0xffffff, 0.5); // Reduced intensity
+        followLight.position.set(0, 2, 0);
+        followLight.angle = Math.PI / 3;
+        followLight.penumbra = 0.2;
+        followLight.decay = 0.5;
+        followLight.distance = 100; // Long range to reach high platforms
+        followLight.target.position.set(0, 20, 0); // Point upward
+        scene.add(followLight);
+        scene.add(followLight.target);
+        
+        // Add side lights to ensure platforms are visible from all angles
+        const leftLight = new THREE.DirectionalLight(0xffffff, 0.2); // Reduced intensity
+        leftLight.position.set(-30, 20, 0);
+        leftLight.lookAt(0, 0, 0);
+        scene.add(leftLight);
+        
+        const rightLight = new THREE.DirectionalLight(0xffffff, 0.2); // Reduced intensity
+        rightLight.position.set(30, 20, 0);
+        rightLight.lookAt(0, 0, 0);
+        scene.add(rightLight);
+        
+        const frontLight = new THREE.DirectionalLight(0xffffff, 0.2); // Reduced intensity
+        frontLight.position.set(0, 20, 30);
+        frontLight.lookAt(0, 0, 0);
+        scene.add(frontLight);
+        
+        const backLight = new THREE.DirectionalLight(0xffffff, 0.2); // Reduced intensity
+        backLight.position.set(0, 20, -30);
+        backLight.lookAt(0, 0, 0);
+        scene.add(backLight);
+        
+        // Store the follow light for updating in the animation loop
+        window.followLight = followLight;
+        
         // Create initial platforms
         createLevel(currentLevel);
 
@@ -315,7 +383,7 @@ function createLevel(levelNumber) {
     }
 
     // First platform is always static and in a fixed position
-    const firstPlatform = createPlatform(0, 2, 3, 0.5, 0x228B22);
+    const firstPlatform = createPlatform(0, 2, 3, 0.5, 0x1a1a1a);
     firstPlatform.position.z = 0;
     platforms.push(firstPlatform);
     createCoin(0, 3.5, 0);
@@ -378,13 +446,13 @@ function createLevel(levelNumber) {
                 const safeAngle = angle + Math.PI / 4;
                 const safeX = x + Math.cos(safeAngle) * PLATFORM_SPACING.SAFE_PLATFORM_DISTANCE;
                 const safeZ = z + Math.sin(safeAngle) * PLATFORM_SPACING.SAFE_PLATFORM_DISTANCE;
-                const safePlatform = createPlatform(safeX, height, width, 0.5, 0x228B22);
+                const safePlatform = createPlatform(safeX, height, width, 0.5, 0x1a1a1a);
                 safePlatform.position.z = safeZ;
                 platforms.push(safePlatform);
                 createCoin(safeX, height + 1.5, safeZ);
                 break;
             default:
-                platform = createPlatform(x, height, width, 0.5, 0x228B22);
+                platform = createPlatform(x, height, width, 0.5, 0x1a1a1a);
                 platform.position.z = z;
         }
 
@@ -469,7 +537,7 @@ function createPlatforms() {
     platforms = [];
 
     // Create main platform
-    const mainPlatform = createPlatform(0, 0, 10, 1, 0x228B22);
+    const mainPlatform = createPlatform(0, 0, 10, 1, 0x1a1a1a);
     platforms.push(mainPlatform);
 
     // Create level-specific platforms
@@ -504,7 +572,7 @@ function createLevel1Platforms() {
     platforms = [];
     
     // First platform is always static and in a fixed position
-    const firstPlatform = createPlatform(0, 2, 3, 0.5, 0x228B22);
+    const firstPlatform = createPlatform(0, 2, 3, 0.5, 0x1a1a1a);
     firstPlatform.position.z = 0;
     platforms.push(firstPlatform);
     createCoin(0, 3.5, 0);
@@ -565,13 +633,13 @@ function createLevel1Platforms() {
                 const safeAngle = angle + Math.PI / 4; // 45 degrees offset
                 const safeX = x + Math.cos(safeAngle) * PLATFORM_SPACING.SAFE_PLATFORM_DISTANCE;
                 const safeZ = z + Math.sin(safeAngle) * PLATFORM_SPACING.SAFE_PLATFORM_DISTANCE;
-                const safePlatform = createPlatform(safeX, height, width, 0.5, 0x228B22);
+                const safePlatform = createPlatform(safeX, height, width, 0.5, 0x1a1a1a);
                 safePlatform.position.z = safeZ;
                 platforms.push(safePlatform);
                 createCoin(safeX, height + 1.5, safeZ);
                 break;
             default:
-                platform = createPlatform(x, height, width, 0.5, 0x228B22);
+                platform = createPlatform(x, height, width, 0.5, 0x1a1a1a);
                 platform.position.z = z;
         }
 
@@ -593,7 +661,7 @@ function createLevel1Platforms() {
 
 // Create a moving platform
 function createMovingPlatform(x, y, z, width) {
-    const platform = createPlatform(x, y, width, 0.5, 0x1E90FF); // Blue color
+    const platform = createPlatform(x, y, width, 0.5, 0x9945FF); // Blue color
     platform.position.z = z;
     
     // Add movement properties
@@ -611,7 +679,7 @@ function createMovingPlatform(x, y, z, width) {
 
 // Create a disappearing platform
 function createDisappearingPlatform(x, y, z, width) {
-    const platform = createPlatform(x, y, width, 0.5, 0xFF6B6B); // Red color
+    const platform = createPlatform(x, y, width, 0.5, 0x14F195); // Solana green
     platform.position.z = z;
     
     platformStates.set(platform.id, {
@@ -749,9 +817,10 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// Update keyboard input handling to fix command key issue
+// Fix keyboard input handling to prevent command key issue
 function onKeyDown(event) {
-    if (event.metaKey || event.ctrlKey) return; // Ignore if command/ctrl key is pressed
+    // Completely ignore key events if meta key (command) is pressed
+    if (event.metaKey) return; 
     
     switch (event.code) {
         case 'Space':
@@ -777,14 +846,11 @@ function onKeyDown(event) {
 }
 
 function onKeyUp(event) {
-    if (event.metaKey || event.ctrlKey) {
-        // Reset all movement when command/ctrl key is released
-        moveLeft = false;
-        moveRight = false;
-        moveForward = false;
-        moveBackward = false;
-        return;
-    }
+    // If this is a meta key up event, don't change anything
+    if (event.key === 'Meta') return;
+    
+    // If meta was pressed during this event, ignore it
+    if (event.metaKey) return;
     
     switch (event.code) {
         case 'KeyA':
@@ -1047,9 +1113,12 @@ function animate() {
         
         // Update camera position
         updateCamera();
+        
+        // Update lights
+        updateLights();
+        
+        renderer.render(scene, camera);
     }
-    
-    renderer.render(scene, camera);
 }
 
 // Function to properly stop animation
@@ -1100,8 +1169,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function createCoin(x, y, z) {
     const geometry = new THREE.CylinderGeometry(0.3, 0.3, 0.1, 32);
     const material = new THREE.MeshStandardMaterial({ 
-        color: 0xFFD700,
-        emissive: 0xFFD700,
+        color: 0xF3BA2F,
+        emissive: 0xF3BA2F,
         emissiveIntensity: 0.2,
         metalness: 0.8,
         roughness: 0.2
@@ -1189,7 +1258,7 @@ function createCoinCollectionEffect(position) {
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     
     const material = new THREE.PointsMaterial({
-        color: 0xFFD700,
+        color: 0xF3BA2F,
         size: 0.1,
         transparent: true
     });
@@ -1231,9 +1300,9 @@ function updateUI() {
 function createGoalPlatform(x, y, z, width) {
     const geometry = new THREE.BoxGeometry(width, 0.5, 2);
     const material = new THREE.MeshStandardMaterial({ 
-        color: 0xFFD700,
-        emissive: 0xFFD700,
-        emissiveIntensity: 0.4,
+        color: 0xF3BA2F,
+        emissive: 0xF3BA2F,
+        emissiveIntensity: 0.2, // Reduced intensity
         metalness: 0.9,
         roughness: 0.2,
         transparent: false // Ensure the platform itself is not transparent
@@ -1243,32 +1312,35 @@ function createGoalPlatform(x, y, z, width) {
     goalPlatform.userData.isGoalPlatform = true; // Mark as goal platform
     scene.add(goalPlatform);
 
-    // Create separate glow effect
-    const glowGeometry = new THREE.BoxGeometry(width + 0.1, 0.55, 2.1);
-    const glowMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0xFFD700,
-        transparent: true,
-        opacity: 0.08,
-        depthWrite: false // Prevent z-fighting with the main platform
-    });
-    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-    glow.position.copy(goalPlatform.position);
-    glow.userData.isGoalGlow = true; // Mark as goal platform glow
-    scene.add(glow);
+    // Only add glow effect in level 1
+    if (currentLevel === 1) {
+        // Create separate glow effect
+        const glowGeometry = new THREE.BoxGeometry(width + 0.1, 0.55, 2.1);
+        const glowMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0xF3BA2F,
+            transparent: true,
+            opacity: 0.05, // Reduced opacity
+            depthWrite: false // Prevent z-fighting with the main platform
+        });
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        glow.position.copy(goalPlatform.position);
+        glow.userData.isGoalGlow = true; // Mark as goal platform glow
+        scene.add(glow);
 
-    // Store reference to glow in goalPlatform
-    goalPlatform.userData.glowEffect = glow;
+        // Store reference to glow in goalPlatform
+        goalPlatform.userData.glowEffect = glow;
 
-    // Animate glow with subtle pulsing
-    let time = 0;
-    const animateGlow = () => {
-        if (goalPlatform && goalPlatform.parent && glow && glow.parent) {
-            time += 0.01;
-            glowMaterial.opacity = 0.08 + Math.sin(time) * 0.02;
-            requestAnimationFrame(animateGlow);
-        }
-    };
-    animateGlow();
+        // Animate glow with subtle pulsing
+        let time = 0;
+        const animateGlow = () => {
+            if (goalPlatform && goalPlatform.parent && glow && glow.parent) {
+                time += 0.01;
+                glowMaterial.opacity = 0.05 + Math.sin(time) * 0.01; // Reduced opacity variation
+                requestAnimationFrame(animateGlow);
+            }
+        };
+        animateGlow();
+    }
 }
 
 // Update level completion check
@@ -1838,7 +1910,7 @@ function createInfinityLevel() {
     const config = INFINITY_CONFIG[infinityDifficulty];
     
     // Create first platform
-    const firstPlatform = createPlatform(0, 2, config.platformWidth, 0.5, 0x228B22);
+    const firstPlatform = createPlatform(0, 2, config.platformWidth, 0.5, 0x1a1a1a);
     firstPlatform.position.z = 0;
     platforms.push(firstPlatform);
     const firstCoin = createCoin(0, 3.5, 0);
@@ -1878,8 +1950,9 @@ function createInfinityLevel() {
         
         platforms.push(platform);
         
-        // Create coin properly above the platform
-        const coin = createCoin(x, height + 1.5, z);
+        // Create and properly position coin above the platform
+        const coinY = height + 1.5;
+        const coin = createCoin(x, coinY, z);
         
         lastX = x;
         lastZ = z;
@@ -1951,11 +2024,13 @@ document.getElementById('infinity-restart-button').addEventListener('click', () 
 function getPlatformColor(type) {
     switch (type) {
         case 'moving':
-            return 0x2196F3; // Blue
+            return 0x9945FF; // Solana purple
         case 'disappearing':
-            return 0xf44336; // Red
+            return 0x14F195; // Solana green
+        case 'goal':
+            return 0xF3BA2F; // Solana gold
         default:
-            return 0x228B22; // Green
+            return 0x1a1a1a; // Dark gray
     }
 }
 
@@ -2009,3 +2084,273 @@ document.getElementById('restart-button').addEventListener('click', () => {
     // Restart animation
     startAnimation();
 }); 
+
+// Create stars in the night sky
+function createStars() {
+    const starsGeometry = new THREE.BufferGeometry();
+    const starsMaterial = new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: 0.8, // Increased size significantly for better visibility
+        transparent: true,
+        opacity: 1.0,
+        sizeAttenuation: false // Set to false to make stars visible at any distance
+    });
+    
+    const starsCount = 3000; // More stars
+    const starsPositions = [];
+    
+    for (let i = 0; i < starsCount; i++) {
+        // Create stars in a hemisphere closer to the camera
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.random() * Math.PI * 0.65;
+        const radius = 60 + Math.random() * 30; // Reduced radius to make stars closer
+        
+        const x = radius * Math.sin(phi) * Math.cos(theta);
+        const y = radius * Math.cos(phi);
+        const z = radius * Math.sin(phi) * Math.sin(theta);
+        
+        starsPositions.push(x, y, z);
+    }
+    
+    starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starsPositions, 3));
+    const stars = new THREE.Points(starsGeometry, starsMaterial);
+    scene.add(stars);
+    
+    // Add some VERY BRIGHT stars
+    const brightStarsGeometry = new THREE.BufferGeometry();
+    const brightStarsMaterial = new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: 1.5, // Even bigger
+        transparent: true,
+        opacity: 1.0,
+        sizeAttenuation: false // Set to false to make stars visible at any distance
+    });
+    
+    const brightStarsCount = 500; // More bright stars
+    const brightStarsPositions = [];
+    
+    for (let i = 0; i < brightStarsCount; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.random() * Math.PI * 0.65;
+        const radius = 60 + Math.random() * 30;
+        
+        const x = radius * Math.sin(phi) * Math.cos(theta);
+        const y = radius * Math.cos(phi);
+        const z = radius * Math.sin(phi) * Math.sin(theta);
+        
+        brightStarsPositions.push(x, y, z);
+    }
+    
+    brightStarsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(brightStarsPositions, 3));
+    const brightStars = new THREE.Points(brightStarsGeometry, brightStarsMaterial);
+    scene.add(brightStars);
+    
+    return { stars, brightStars };
+}
+
+// Call the createStars function to add stars to the scene
+createStars();
+
+// Create clouds in the night sky
+function createClouds() {
+    const clouds = new THREE.Group();
+    
+    // Parameters for cloud distribution
+    const cloudCount = 15;
+    const minHeight = 20; // Lower height to be more visible
+    const maxHeight = 40; // Lower max height
+    const distributionRadius = 50; // Smaller radius to keep clouds closer
+    
+    // Create multiple cloud clusters
+    for (let i = 0; i < cloudCount; i++) {
+        const cloudCluster = new THREE.Group();
+        
+        // Random position for this cluster
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 20 + Math.random() * distributionRadius; // Ensure some clouds are closer
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const y = minHeight + Math.random() * (maxHeight - minHeight);
+        
+        // Size of this cluster
+        const clusterSize = 5 + Math.floor(Math.random() * 5); // More particles per cloud
+        
+        // Create individual cloud particles
+        for (let j = 0; j < clusterSize; j++) {
+            // Create a cloud puff
+            const cloudGeometry = new THREE.SphereGeometry(2.5 + Math.random() * 3, 8, 8); // Larger size
+            
+            // Create a material with soft edges - lighter color for night clouds
+            const cloudMaterial = new THREE.MeshPhongMaterial({
+                color: 0x4A4F82, // Lighter bluish color for better visibility
+                emissive: 0x2A305F,
+                emissiveIntensity: 0.3, // Add some self-illumination
+                transparent: true,
+                opacity: 0.7 + Math.random() * 0.3, // Higher opacity
+                flatShading: true
+            });
+            
+            const cloudPuff = new THREE.Mesh(cloudGeometry, cloudMaterial);
+            
+            // Position within the cluster
+            const puffRadius = 4; // Larger cluster
+            const puffAngle = Math.random() * Math.PI * 2;
+            const puffX = Math.cos(puffAngle) * puffRadius * Math.random();
+            const puffZ = Math.sin(puffAngle) * puffRadius * Math.random();
+            const puffY = Math.random() * 3;
+            
+            cloudPuff.position.set(puffX, puffY, puffZ);
+            cloudPuff.rotation.set(
+                Math.random() * Math.PI,
+                Math.random() * Math.PI,
+                Math.random() * Math.PI
+            );
+            
+            cloudCluster.add(cloudPuff);
+        }
+        
+        // Position the entire cluster
+        cloudCluster.position.set(x, y, z);
+        
+        // Add subtle animation data
+        cloudCluster.userData = {
+            rotSpeed: (Math.random() - 0.5) * 0.001,
+            moveSpeed: 0.01 + Math.random() * 0.01,
+            moveAngle: Math.random() * Math.PI * 2,
+            amplitude: 0.5 + Math.random() * 0.5,
+            waveFactor: 0.1 + Math.random() * 0.3,
+            originY: y
+        };
+        
+        clouds.add(cloudCluster);
+    }
+    
+    scene.add(clouds);
+    
+    return clouds;
+}
+
+// Call the createClouds function to add clouds to the scene
+createClouds();
+
+// Create a spaceship that moves across the sky
+function createSpaceship() {
+    // Create the main body of the spaceship
+    const bodyGeometry = new THREE.CylinderGeometry(0, 2.5, 7, 8); // Much larger size
+    bodyGeometry.rotateX(Math.PI / 2);
+    const bodyMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0x9945FF, // Solana purple
+        emissive: 0x9945FF,
+        emissiveIntensity: 0.8, // Increased for better visibility
+        metalness: 0.8,
+        roughness: 0.2
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    
+    // Create the cockpit
+    const cockpitGeometry = new THREE.SphereGeometry(1.5, 16, 16); // Larger
+    const cockpitMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0x14F195, // Solana green
+        emissive: 0x14F195,
+        emissiveIntensity: 0.8, // Increased
+        metalness: 0.9,
+        roughness: 0.1,
+        transparent: true,
+        opacity: 0.9
+    });
+    const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
+    cockpit.position.set(0, 0, -3.2); // Adjusted for larger ship
+    
+    // Create wings
+    const wingGeometry = new THREE.BoxGeometry(7, 0.5, 2, 1, 1, 1); // Larger
+    const wingMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0xF3BA2F, // Solana gold
+        emissive: 0xF3BA2F,
+        emissiveIntensity: 0.8 // Increased
+    });
+    const wings = new THREE.Mesh(wingGeometry, wingMaterial);
+    
+    // Create engine glow
+    const engineGlowGeometry = new THREE.CylinderGeometry(1.0, 1.5, 2.5, 16); // Larger
+    engineGlowGeometry.rotateX(Math.PI / 2);
+    const engineGlowMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xF3BA2F, 
+        transparent: true,
+        opacity: 1.0 // Full opacity
+    });
+    const engineGlow = new THREE.Mesh(engineGlowGeometry, engineGlowMaterial);
+    engineGlow.position.set(0, 0, 4.2); // Adjusted for larger ship
+    
+    // Create a stronger point light for the engine
+    const engineLight = new THREE.PointLight(0xF3BA2F, 10, 30); // Increased intensity
+    engineLight.position.set(0, 0, 5);
+    
+    // Additional lights to make the ship more visible
+    const shipLight1 = new THREE.PointLight(0x9945FF, 5, 20);
+    shipLight1.position.set(0, 2, 0);
+    
+    const shipLight2 = new THREE.PointLight(0x14F195, 5, 20);
+    shipLight2.position.set(0, -2, 0);
+    
+    // Group all parts together
+    const spaceship = new THREE.Group();
+    spaceship.add(body);
+    spaceship.add(cockpit);
+    spaceship.add(wings);
+    spaceship.add(engineGlow);
+    spaceship.add(engineLight);
+    spaceship.add(shipLight1);
+    spaceship.add(shipLight2);
+    
+    // Position the spaceship high in the sky but closer to the play area
+    spaceship.position.set(-40, 35, -30); // Higher position but closer
+    spaceship.rotation.y = Math.PI / 4;
+    spaceship.scale.set(2, 2, 2); // Scale up the entire ship significantly
+    scene.add(spaceship);
+    
+    // Animation parameters
+    const pathRadius = 80; // Keep the path smaller so it's more visible
+    const speed = 0.0008; // Slightly faster
+    let angle = 0;
+    
+    // Animation function for the spaceship
+    function animateSpaceship() {
+        angle += speed;
+        
+        // Move in a circular path
+        spaceship.position.x = Math.cos(angle) * pathRadius;
+        spaceship.position.z = Math.sin(angle) * pathRadius;
+        
+        // Make it slightly bob up and down
+        spaceship.position.y = 35 + Math.sin(angle * 2) * 10;
+        
+        // Rotate to face direction of travel
+        spaceship.rotation.y = angle + Math.PI / 2;
+        
+        // Add a slight banking effect
+        spaceship.rotation.z = Math.sin(angle) * 0.2;
+        
+        requestAnimationFrame(animateSpaceship);
+    }
+    
+    animateSpaceship();
+    
+    return spaceship;
+}
+
+// Call the function to create and animate the spaceship
+createSpaceship();
+
+// Add a function to update the follow light and other lights in the game
+function updateLights() {
+    // Update the follow light to move with the player
+    if (window.followLight && player) {
+        window.followLight.position.copy(player.position);
+        window.followLight.position.y += 2;
+        
+        // Point the light upward in the direction the player is looking
+        const targetY = player.position.y + 20;
+        window.followLight.target.position.set(player.position.x, targetY, player.position.z);
+        window.followLight.target.updateMatrixWorld();
+    }
+}
