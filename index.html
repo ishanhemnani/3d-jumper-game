@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Platform Jumper - Vibe Game 2025</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Initialize Supabase
+        const supabaseUrl = 'https://gajefcrasblgadhiriae.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamVmY3Jhc2JsZ2FkaGlyaWFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMyNzgzNDAsImV4cCI6MjA1ODg1NDM0MH0.XT-bVE_nr6BssChQ14izWwiz8XzZNOE8QTHgHB8Qg2o';
+        
+        // Create Supabase client
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+        
+        // Test Supabase connection
+        async function testSupabaseConnection() {
+            try {
+                console.log('Testing Supabase connection...');
+                
+                // Try to get the current user to test the connection
+                const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+                console.log('Auth status:', user ? 'Authenticated' : 'Anonymous', userError ? `Error: ${userError.message}` : '');
+                
+                // Try a simple query to test database access
+                const { data: testData, error: testError } = await supabaseClient
+                    .from('leaderboard')
+                    .select('count')
+                    .limit(1);
+                
+                if (testError) {
+                    console.error('Supabase test query error:', testError);
+                    if (testError.code === '42P01') {
+                        console.error('Table "leaderboard" does not exist. Please create it first.');
+                    } else if (testError.code === '42501') {
+                        console.error('Permission denied. Check your RLS policies.');
+                        console.error('You need to add a SELECT policy for the leaderboard table:');
+                        console.error(`
+CREATE POLICY "Enable read access for all users" 
+ON "leaderboard"
+FOR SELECT 
+TO anon
+USING (true);
+                        `);
+                    }
+                } else {
+                    console.log('Supabase test query successful:', testData);
+                }
+                
+                // Load all leaderboard data for debugging
+                await loadAllLeaderboardData();
+            } catch (error) {
+                console.error('Supabase connection test failed:', error);
+            }
+        }
+        
+        // Function to load all leaderboard data for debugging
+        async function loadAllLeaderboardData() {
+            try {
+                console.log('Loading ALL leaderboard data for debugging...');
+                
+                const { data, error } = await supabaseClient
+                    .from('leaderboard')
+                    .select('*');
+                
+                if (error) {
+                    console.error('Error loading all data:', error);
+                } else {
+                    console.log('ALL leaderboard data:', data);
+                    console.log('Total records:', data ? data.length : 0);
+                    
+                    if (data && data.length > 0) {
+                        console.log('First record:', data[0]);
+                        console.log('Difficulties present:', [...new Set(data.map(item => item.difficulty))]);
+                    }
+                }
+            } catch (error) {
+                console.error('Error in loadAllLeaderboardData:', error);
+            }
+        }
+        
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, testing Supabase connection');
+            testSupabaseConnection();
+        });
+        
+        // Make functions available globally
+        window.dbRef = function() {
+            return { 
+                table: 'leaderboard',
+                difficulty: null
+            };
+        };
+        
+        window.dbPush = async function(ref, data) {
+            try {
+                console.log('Pushing data to leaderboard:', data);
+                
+                const { data: result, error } = await supabaseClient
+                    .from('leaderboard')
+                    .insert([{
+                        player_name: data.playerName,
+                        score: data.score,
+                        coins: data.coins,
+                        difficulty: data.difficulty || ref.difficulty,
+                        created_at: new Date().toISOString()
+                    }]);
+                    
+                if (error) {
+                    console.error('Supabase insertion error:', error);
+                    throw error;
+                }
+                
+                console.log('Data successfully inserted:', result);
+                return { data: result, error: null };
+            } catch (error) {
+                console.error('Error in dbPush:', error);
+                throw error;
+            }
+        };
+        
+        window.dbOnValue = async function(ref, callback) {
+            try {
+                console.log('Loading leaderboard for difficulty:', ref.difficulty);
+                
+                // First try to get all records to see if there's any data at all
+                const { data: allData, error: allError } = await supabaseClient
+                    .from('leaderboard')
+                    .select('*')
+                    .order('score', { ascending: false })
+                    .limit(20);
+                
+                console.log('All leaderboard data (regardless of difficulty):', allData);
+                
+                // Now get data filtered by difficulty
+                const { data, error } = await supabaseClient
+                    .from('leaderboard')
+                    .select('*')
+                    .eq('difficulty', ref.difficulty)
+                    .order('score', { ascending: false })
+                    .limit(10);
+                
+                if (error) {
+                    console.error('Supabase fetch error:', error);
+                    throw error;
+                }
+                
+                console.log('Fetched leaderboard data for difficulty:', ref.difficulty, data);
+                console.log('Data type:', typeof data, 'Length:', data ? data.length : 0);
+                
+                // If we have no data for this difficulty but have data for other difficulties,
+                // show a message indicating there are no scores for this difficulty
+                if ((!data || data.length === 0) && allData && allData.length > 0) {
+                    console.log('No data for difficulty:', ref.difficulty, 'but found data for other difficulties');
+                    document.getElementById('leaderboard-body').innerHTML = 
+                        `<tr><td colspan="4">No scores yet for ${ref.difficulty} difficulty. Try another tab!</td></tr>`;
+                    return;
+                } else if (!data || data.length === 0) {
+                    // No data at all
+                    console.log('No leaderboard data found at all');
+                    document.getElementById('leaderboard-body').innerHTML = 
+                        '<tr><td colspan="4">No scores yet. Be the first!</td></tr>';
+                    return;
+                }
+                
+                // Log each item in the data
+                data.forEach((item, index) => {
+                    console.log(`Leaderboard item ${index}:`, item);
+                });
+                
+                callback({
+                    forEach: (fn) => (data || []).forEach(item => {
+                        fn({
+                            key: item.id,
+                            val: () => ({
+                                playerName: item.player_name,
+                                score: item.score,
+                                coins: item.coins,
+                                timestamp: new Date(item.created_at).getTime()
+                            })
+                        });
+                    })
+                });
+            } catch (error) {
+                console.error('Error in dbOnValue:', error);
+                // Show error in leaderboard
+                document.getElementById('leaderboard-body').innerHTML = 
+                    '<tr><td colspan="4">Error loading leaderboard</td></tr>';
+                throw error;
+            }
+        };
+        
+        // Load initial leaderboard when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, loading initial leaderboard');
+            
+            // Set up tab click handlers
+            const tabButtons = document.querySelectorAll('.tab-button');
+            console.log('Found tab buttons:', tabButtons.length);
+            
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const difficulty = this.dataset.difficulty;
+                    console.log('Tab clicked for difficulty:', difficulty);
+                    
+                    // Update active tab
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Directly update the leaderboard UI with the data we already have
+                    const leaderboardRef = window.dbRef();
+                    leaderboardRef.difficulty = difficulty;
+                    
+                    // This will trigger the updateLeaderboardUI function
+                    window.dbOnValue(leaderboardRef, function(snapshot) {
+                        console.log('Tab click leaderboard loaded for difficulty:', difficulty);
+                        
+                        // Force a direct update of the leaderboard UI
+                        const entries = [];
+                        snapshot.forEach((child) => {
+                            entries.push({
+                                id: child.key,
+                                ...child.val()
+                            });
+                        });
+                        
+                        // Get the updateLeaderboardUI function from the game.js
+                        if (typeof updateLeaderboardUI === 'function') {
+                            console.log('Directly calling updateLeaderboardUI with entries:', entries);
+                            updateLeaderboardUI(entries);
+                        } else {
+                            console.error('updateLeaderboardUI function not found!');
+                            // Fallback: Update the UI directly
+                            const tbody = document.getElementById('leaderboard-body');
+                            if (tbody) {
+                                tbody.innerHTML = '';
+                                if (entries.length === 0) {
+                                    tbody.innerHTML = '<tr><td colspan="4">No scores yet for ' + difficulty + '</td></tr>';
+                                } else {
+                                    entries.forEach((entry, index) => {
+                                        const row = document.createElement('tr');
+                                        const playerName = entry.playerName || 'Unknown';
+                                        row.innerHTML = `
+                                            <td>${index + 1}</td>
+                                            <td>${playerName}</td>
+                                            <td>${entry.score}</td>
+                                            <td>${entry.coins}</td>
+                                        `;
+                                        tbody.appendChild(row);
+                                    });
+                                }
+                                console.log('Leaderboard updated directly with', entries.length, 'entries');
+                            }
+                        }
+                    });
+                });
+            });
+            
+            // Load the easy difficulty leaderboard by default and trigger the first tab
+            if (tabButtons.length > 0) {
+                tabButtons[0].classList.add('active');
+                tabButtons[0].click(); // Simulate a click on the first tab
+            }
+        });
+        
+        console.log('Supabase functions initialized successfully');
+    </script>
+    <script type="module" src="game.js"></script>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        
+        <div id="start-screen" class="overlay">
+            <h1>3D Jumper</h1>
+            <div class="game-mode-buttons">
+                <button id="start-button" class="mode-btn">Levels Mode</button>
+                <button id="infinity-button" class="mode-btn">Infinity Mode</button>
+            </div>
+            
+            <div class="main-content">
+                <div class="left-panel">
+                    <div id="game-instructions">
+                        <div class="instructions-section">
+                            <h3>Controls</h3>
+                            <ul>
+                                <li><span class="key">W</span><span class="key">↑</span> Move Forward</li>
+                                <li><span class="key">S</span><span class="key">↓</span> Move Backward</li>
+                                <li><span class="key">A</span><span class="key">←</span> Move Left</li>
+                                <li><span class="key">D</span><span class="key">→</span> Move Right</li>
+                                <li><span class="key">Space</span> Jump</li>
+                                <li><span class="instruction-text">Mouse</span> Look Around</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="instructions-section">
+                            <h3>Platform Types</h3>
+                            <div class="platform-types">
+                                <div class="platform-type">
+                                    <div class="platform-color black"></div>
+                                    <span>Normal Platform</span>
+                                </div>
+                                <div class="platform-type">
+                                    <div class="platform-color purple"></div>
+                                    <span>Moving Platform</span>
+                                </div>
+                                <div class="platform-type">
+                                    <div class="platform-color green"></div>
+                                    <span>Disappearing Platform</span>
+                                </div>
+                                <div class="platform-type">
+                                    <div class="platform-color yellow"></div>
+                                    <span>Goal Platform</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        
+                    </div>
+                </div>
+                
+                <div class="right-panel">
+                    <div id="leaderboard" class="instructions-section">
+                        <h3>Top Players - Infinity Mode</h3>
+                        <div class="leaderboard-tabs">
+                            <button class="tab-button active" data-difficulty="easy">Easy</button>
+                            <button class="tab-button" data-difficulty="medium">Medium</button>
+                            <button class="tab-button" data-difficulty="hard">Hard</button>
+                        </div>
+                        <div class="leaderboard-content">
+                            <table id="leaderboard-table">
+                                <thead>
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Player</th>
+                                        <th>Score</th>
+                                        <th>Coins</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leaderboard-body">
+                                    <!-- Leaderboard entries will be added here dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="game-ui">
+            <div id="level-display">Level 1</div>
+            <div id="score-container">
+                <div>Score: <span id="score-value">0</span></div>
+            </div>
+            <div id="coins-container">
+                <div>Coins: <span id="coins-value">0</span></div>
+            </div>
+            <div id="home-button-container">
+                <button id="home-button" class="green-button" onclick="location.reload()">Home</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="level-complete" class="overlay" style="display: none;">
+        <h2>Level Complete!</h2>
+        <div id="level-stats"></div>
+        <button id="next-level-button">Next Level</button>
+        <button class="green-button" onclick="location.reload()">Home</button>
+    </div>
+
+    <div id="game-over" class="overlay" style="display: none;">
+        <h2>Game Over</h2>
+        <div id="final-score"></div>
+        <button id="restart-button">Play Again</button>
+        <button class="green-button" onclick="location.reload()">Home</button>
+    </div>
+
+    <div id="infinity-mode-select" class="overlay" style="display: none;">
+        <h2>Select Difficulty</h2>
+        <div class="difficulty-buttons">
+            <button id="easy-mode">Easy</button>
+            <button id="medium-mode">Medium</button>
+            <button id="hard-mode">Hard</button>
+        </div>
+        <button class="green-button" onclick="location.reload()">Home</button>
+    </div>
+
+    <div id="infinity-game-over" class="overlay">
+        <h2>Game Over!</h2>
+        <div id="infinity-stats">
+            <p>Coins Collected: <span id="infinity-coins">0</span></p>
+            <p>Score: <span id="infinity-score">0</span></p>
+        </div>
+        <div id="submit-score-form">
+            <input type="text" id="player-name" placeholder="Enter your name" maxlength="15">
+            <button id="submit-score-btn" class="game-btn">Submit Score</button>
+        </div>
+        <button id="infinity-restart-btn" class="game-btn">Play Again</button>
+        <button class="green-button" onclick="location.reload()">Home</button>
+    </div>
+
+    <div id="mobile-controls">
+        <div id="joystick"></div>
+    </div>
+
+    <a target="_blank" href="https://jam.pieter.com" style="font-family: 'system-ui', sans-serif; position: fixed; bottom: -1px; right: -1px; padding: 7px; font-size: 14px; font-weight: bold; background: #fff; color: #000; text-decoration: none; z-index: 10; border-top-left-radius: 12px; z-index: 10000; border: 1px solid #fff;">🕹️ Vibe Jam 2025</a>
+</body>
+</html>

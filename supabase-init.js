@@ -1,47 +1,13 @@
-// Supabase initialization
-// Get credentials from environment variables
-let supabaseUrl = '';
-let supabaseKey = '';
+// Initialize Supabase client
+const supabaseUrl = 'https://gajefcrasblgadhiriae.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamVmY3Jhc2JsZ2FkaGlyaWFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NzU3NjQ0MDAsImV4cCI6MjA1ODg1NDM0MH0.XT-bVE_nr6BssChQ14izWwiz8XzZNOE8QTHgHB8Qg2o';
 
-// Load from environment config
-if (typeof window !== 'undefined' && window.ENV) {
-    supabaseUrl = window.ENV.SUPABASE_URL;
-    supabaseKey = window.ENV.SUPABASE_KEY;
-} else {
-    // Fallback values for development
-    console.warn('Using fallback Supabase credentials. This should only happen in development.');
-    supabaseUrl = 'https://gajefcrasblgadhiriae.supabase.co';
-    supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamVmY3Jhc2JsZ2FkaGlyaWFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NzU3NjQ0MDAsImV4cCI6MjA1ODg1NDM0MH0.XT-bVE_nr6BssChQ14izWwiz8XzZNOE8QTHgHB8Qg2o';
-}
+// Create a real Supabase client
+const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+console.log('Supabase client created:', supabase);
 
-console.log('Initializing Supabase with URL:', supabaseUrl);
-
-// Initialize functions
-function initSupabase() {
-    if (typeof supabase === 'undefined') {
-        console.error('Supabase client not loaded');
-        return false;
-    }
-    
-    try {
-        // Create the client
-        const client = supabase.createClient(supabaseUrl, supabaseKey);
-        
-        // Make the client accessible globally
-        window.supabaseClient = client;
-        
-        console.log('Supabase client initialized successfully');
-        return true;
-    } catch (error) {
-        console.error('Error initializing Supabase:', error);
-        return false;
-    }
-}
-
-// Initialize when the document is loaded
-if (typeof document !== 'undefined') {
-    document.addEventListener('DOMContentLoaded', initSupabase);
-}
+// Make Supabase client available globally
+window.supabaseClient = supabase;
 
 // Define database reference function
 window.dbRef = function() {
