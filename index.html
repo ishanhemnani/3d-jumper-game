@@ -7,194 +7,202 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Our scripts will be injected by the server after this -->
+    <!-- The window.SUPABASE_URL and window.SUPABASE_KEY variables will be available -->
     <script>
-        // Initialize Supabase
-        const supabaseUrl = 'https://gajefcrasblgadhiriae.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamVmY3Jhc2JsZ2FkaGlyaWFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMyNzgzNDAsImV4cCI6MjA1ODg1NDM0MH0.XT-bVE_nr6BssChQ14izWwiz8XzZNOE8QTHgHB8Qg2o';
-        
-        // Create Supabase client
-        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
-        
-        // Test Supabase connection
-        async function testSupabaseConnection() {
-            try {
-                console.log('Testing Supabase connection...');
-                
-                // Try to get the current user to test the connection
-                const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-                console.log('Auth status:', user ? 'Authenticated' : 'Anonymous', userError ? `Error: ${userError.message}` : '');
-                
-                // Try a simple query to test database access
-                const { data: testData, error: testError } = await supabaseClient
-                    .from('leaderboard')
-                    .select('count')
-                    .limit(1);
-                
-                if (testError) {
-                    console.error('Supabase test query error:', testError);
-                    if (testError.code === '42P01') {
-                        console.error('Table "leaderboard" does not exist. Please create it first.');
-                    } else if (testError.code === '42501') {
-                        console.error('Permission denied. Check your RLS policies.');
-                        console.error('You need to add a SELECT policy for the leaderboard table:');
-                        console.error(`
+        document.addEventListener('DOMContentLoaded', function() {
+            // Debug output to console
+            console.log('DOMContentLoaded event fired');
+            console.log('Supabase URL:', window.SUPABASE_URL);
+            console.log('Supabase Key exists:', window.SUPABASE_KEY ? 'yes' : 'no');
+            
+            // Initialize Supabase
+            const supabaseUrl = window.SUPABASE_URL;
+            const supabaseKey = window.SUPABASE_KEY;
+            
+            // Create Supabase client
+            const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+            console.log('Supabase client created:', supabaseClient);
+            
+            // Make it globally available
+            window.supabaseClient = supabaseClient;
+            
+            // Test Supabase connection
+            async function testSupabaseConnection() {
+                try {
+                    console.log('Testing Supabase connection...');
+                    
+                    // Try to get the current user to test the connection
+                    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+                    console.log('Auth status:', user ? 'Authenticated' : 'Anonymous', userError ? `Error: ${userError.message}` : '');
+                    
+                    // Try a simple query to test database access
+                    const { data: testData, error: testError } = await supabaseClient
+                        .from('leaderboard')
+                        .select('count')
+                        .limit(1);
+                    
+                    if (testError) {
+                        console.error('Supabase test query error:', testError);
+                        if (testError.code === '42P01') {
+                            console.error('Table "leaderboard" does not exist. Please create it first.');
+                        } else if (testError.code === '42501') {
+                            console.error('Permission denied. Check your RLS policies.');
+                            console.error('You need to add a SELECT policy for the leaderboard table:');
+                            console.error(`
 CREATE POLICY "Enable read access for all users" 
 ON "leaderboard"
 FOR SELECT 
 TO anon
 USING (true);
-                        `);
+                            `);
+                        }
+                    } else {
+                        console.log('Supabase test query successful:', testData);
                     }
-                } else {
-                    console.log('Supabase test query successful:', testData);
-                }
-                
-                // Load all leaderboard data for debugging
-                await loadAllLeaderboardData();
-            } catch (error) {
-                console.error('Supabase connection test failed:', error);
-            }
-        }
-        
-        // Function to load all leaderboard data for debugging
-        async function loadAllLeaderboardData() {
-            try {
-                console.log('Loading ALL leaderboard data for debugging...');
-                
-                const { data, error } = await supabaseClient
-                    .from('leaderboard')
-                    .select('*');
-                
-                if (error) {
-                    console.error('Error loading all data:', error);
-                } else {
-                    console.log('ALL leaderboard data:', data);
-                    console.log('Total records:', data ? data.length : 0);
                     
-                    if (data && data.length > 0) {
-                        console.log('First record:', data[0]);
-                        console.log('Difficulties present:', [...new Set(data.map(item => item.difficulty))]);
-                    }
+                    // Load all leaderboard data for debugging
+                    await loadAllLeaderboardData();
+                } catch (error) {
+                    console.error('Supabase connection test failed:', error);
                 }
-            } catch (error) {
-                console.error('Error in loadAllLeaderboardData:', error);
             }
-        }
-        
-        // Run tests when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded, testing Supabase connection');
+            
+            // Function to load all leaderboard data for debugging
+            async function loadAllLeaderboardData() {
+                try {
+                    console.log('Loading ALL leaderboard data for debugging...');
+                    
+                    const { data, error } = await supabaseClient
+                        .from('leaderboard')
+                        .select('*');
+                    
+                    if (error) {
+                        console.error('Error loading all data:', error);
+                    } else {
+                        console.log('ALL leaderboard data:', data);
+                        console.log('Total records:', data ? data.length : 0);
+                        
+                        if (data && data.length > 0) {
+                            console.log('First record:', data[0]);
+                            console.log('Difficulties present:', [...new Set(data.map(item => item.difficulty))]);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error in loadAllLeaderboardData:', error);
+                }
+            }
+            
+            // Run tests when page loads
             testSupabaseConnection();
-        });
-        
-        // Make functions available globally
-        window.dbRef = function() {
-            return { 
-                table: 'leaderboard',
-                difficulty: null
+            
+            // Make functions available globally
+            window.dbRef = function() {
+                return { 
+                    table: 'leaderboard',
+                    difficulty: null
+                };
             };
-        };
-        
-        window.dbPush = async function(ref, data) {
-            try {
-                console.log('Pushing data to leaderboard:', data);
-                
-                const { data: result, error } = await supabaseClient
-                    .from('leaderboard')
-                    .insert([{
-                        player_name: data.playerName,
-                        score: data.score,
-                        coins: data.coins,
-                        difficulty: data.difficulty || ref.difficulty,
-                        created_at: new Date().toISOString()
-                    }]);
+            
+            window.dbPush = async function(ref, data) {
+                try {
+                    console.log('Pushing data to leaderboard:', data);
                     
-                if (error) {
-                    console.error('Supabase insertion error:', error);
+                    const { data: result, error } = await supabaseClient
+                        .from('leaderboard')
+                        .insert([{
+                            player_name: data.playerName,
+                            score: data.score,
+                            coins: data.coins,
+                            difficulty: data.difficulty || ref.difficulty,
+                            created_at: new Date().toISOString()
+                        }]);
+                        
+                    if (error) {
+                        console.error('Supabase insertion error:', error);
+                        throw error;
+                    }
+                    
+                    console.log('Data successfully inserted:', result);
+                    return { data: result, error: null };
+                } catch (error) {
+                    console.error('Error in dbPush:', error);
                     throw error;
                 }
-                
-                console.log('Data successfully inserted:', result);
-                return { data: result, error: null };
-            } catch (error) {
-                console.error('Error in dbPush:', error);
-                throw error;
-            }
-        };
-        
-        window.dbOnValue = async function(ref, callback) {
-            try {
-                console.log('Loading leaderboard for difficulty:', ref.difficulty);
-                
-                // First try to get all records to see if there's any data at all
-                const { data: allData, error: allError } = await supabaseClient
-                    .from('leaderboard')
-                    .select('*')
-                    .order('score', { ascending: false })
-                    .limit(20);
-                
-                console.log('All leaderboard data (regardless of difficulty):', allData);
-                
-                // Now get data filtered by difficulty
-                const { data, error } = await supabaseClient
-                    .from('leaderboard')
-                    .select('*')
-                    .eq('difficulty', ref.difficulty)
-                    .order('score', { ascending: false })
-                    .limit(10);
-                
-                if (error) {
-                    console.error('Supabase fetch error:', error);
+            };
+            
+            window.dbOnValue = async function(ref, callback) {
+                try {
+                    console.log('Loading leaderboard for difficulty:', ref.difficulty);
+                    
+                    // First try to get all records to see if there's any data at all
+                    const { data: allData, error: allError } = await supabaseClient
+                        .from('leaderboard')
+                        .select('*')
+                        .order('score', { ascending: false })
+                        .limit(20);
+                    
+                    console.log('All leaderboard data (regardless of difficulty):', allData);
+                    
+                    // Now get data filtered by difficulty
+                    const { data, error } = await supabaseClient
+                        .from('leaderboard')
+                        .select('*')
+                        .eq('difficulty', ref.difficulty)
+                        .order('score', { ascending: false })
+                        .limit(10);
+                    
+                    if (error) {
+                        console.error('Supabase fetch error:', error);
+                        throw error;
+                    }
+                    
+                    console.log('Fetched leaderboard data for difficulty:', ref.difficulty, data);
+                    console.log('Data type:', typeof data, 'Length:', data ? data.length : 0);
+                    
+                    // If we have no data for this difficulty but have data for other difficulties,
+                    // show a message indicating there are no scores for this difficulty
+                    if ((!data || data.length === 0) && allData && allData.length > 0) {
+                        console.log('No data for difficulty:', ref.difficulty, 'but found data for other difficulties');
+                        document.getElementById('leaderboard-body').innerHTML = 
+                            `<tr><td colspan="4">No scores yet for ${ref.difficulty} difficulty. Try another tab!</td></tr>`;
+                        return;
+                    } else if (!data || data.length === 0) {
+                        // No data at all
+                        console.log('No leaderboard data found at all');
+                        document.getElementById('leaderboard-body').innerHTML = 
+                            '<tr><td colspan="4">No scores yet. Be the first!</td></tr>';
+                        return;
+                    }
+                    
+                    // Log each item in the data
+                    data.forEach((item, index) => {
+                        console.log(`Leaderboard item ${index}:`, item);
+                    });
+                    
+                    callback({
+                        forEach: (fn) => (data || []).forEach(item => {
+                            fn({
+                                key: item.id,
+                                val: () => ({
+                                    playerName: item.player_name,
+                                    score: item.score,
+                                    coins: item.coins,
+                                    timestamp: new Date(item.created_at).getTime()
+                                })
+                            });
+                        })
+                    });
+                } catch (error) {
+                    console.error('Error in dbOnValue:', error);
+                    // Show error in leaderboard
+                    document.getElementById('leaderboard-body').innerHTML = 
+                        '<tr><td colspan="4">Error loading leaderboard</td></tr>';
                     throw error;
                 }
-                
-                console.log('Fetched leaderboard data for difficulty:', ref.difficulty, data);
-                console.log('Data type:', typeof data, 'Length:', data ? data.length : 0);
-                
-                // If we have no data for this difficulty but have data for other difficulties,
-                // show a message indicating there are no scores for this difficulty
-                if ((!data || data.length === 0) && allData && allData.length > 0) {
-                    console.log('No data for difficulty:', ref.difficulty, 'but found data for other difficulties');
-                    document.getElementById('leaderboard-body').innerHTML = 
-                        `<tr><td colspan="4">No scores yet for ${ref.difficulty} difficulty. Try another tab!</td></tr>`;
-                    return;
-                } else if (!data || data.length === 0) {
-                    // No data at all
-                    console.log('No leaderboard data found at all');
-                    document.getElementById('leaderboard-body').innerHTML = 
-                        '<tr><td colspan="4">No scores yet. Be the first!</td></tr>';
-                    return;
-                }
-                
-                // Log each item in the data
-                data.forEach((item, index) => {
-                    console.log(`Leaderboard item ${index}:`, item);
-                });
-                
-                callback({
-                    forEach: (fn) => (data || []).forEach(item => {
-                        fn({
-                            key: item.id,
-                            val: () => ({
-                                playerName: item.player_name,
-                                score: item.score,
-                                coins: item.coins,
-                                timestamp: new Date(item.created_at).getTime()
-                            })
-                        });
-                    })
-                });
-            } catch (error) {
-                console.error('Error in dbOnValue:', error);
-                // Show error in leaderboard
-                document.getElementById('leaderboard-body').innerHTML = 
-                    '<tr><td colspan="4">Error loading leaderboard</td></tr>';
-                throw error;
-            }
-        };
-        
-        // Load initial leaderboard when page loads
-        document.addEventListener('DOMContentLoaded', function() {
+            };
+            
+            // Load initial leaderboard when page loads
             console.log('DOM loaded, loading initial leaderboard');
             
             // Set up tab click handlers

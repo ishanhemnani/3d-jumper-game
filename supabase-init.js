@@ -1,9 +1,9 @@
 // Initialize Supabase client
-const supabaseUrl = 'https://gajefcrasblgadhiriae.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdhamVmY3Jhc2JsZ2FkaGlyaWFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NzU3NjQ0MDAsImV4cCI6MjA1ODg1NDM0MH0.XT-bVE_nr6BssChQ14izWwiz8XzZNOE8QTHgHB8Qg2o';
+const supabaseUrl = window.SUPABASE_URL;
+const supabaseKey = window.SUPABASE_KEY;
 
 // Create a real Supabase client
-const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 console.log('Supabase client created:', supabase);
 
 // Make Supabase client available globally
