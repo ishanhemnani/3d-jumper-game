@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="phantomGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#534BB1" />
+      <stop offset="100%" stop-color="#551BF9" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="128" height="128" rx="32" fill="url(#phantomGradient)" />
+  
+  <!-- Phantom ghost shape -->
+  <path d="M88 44H40c-4.4 0-8 3.6-8 8v24c0 13.3 10.7 24 24 24h16c13.3 0 24-10.7 24-24V52c0-4.4-3.6-8-8-8z"
+        fill="#ffffff" />
+  
+  <!-- Eyes -->
+  <circle cx="56" cy="64" r="6" fill="#551BF9" />
+  <circle cx="72" cy="64" r="6" fill="#551BF9" />
+</svg> 

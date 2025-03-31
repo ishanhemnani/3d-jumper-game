@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Circular gradient background -->
+  <defs>
+    <linearGradient id="tokenGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3a7bd5" />
+      <stop offset="100%" stop-color="#00d2ff" />
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  
+  <!-- Main circle -->
+  <circle cx="100" cy="100" r="90" fill="url(#tokenGradient)" filter="url(#glow)" />
+  
+  <!-- Inner circle -->
+  <circle cx="100" cy="100" r="75" fill="transparent" stroke="#ffffff" stroke-width="3" opacity="0.5" />
+  
+  <!-- "J" letter -->
+  <path d="M100 50 L120 50 L120 120 C120 140 110 150 90 150 C70 150 60 140 60 120 L80 120 C80 130 85 135 90 135 C95 135 100 130 100 120 Z" fill="#ffffff" />
+</svg> 

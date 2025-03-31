@@ -1,3 +1,6 @@
+// Import wallet integration
+import { initWalletGameIntegration, convertCoinToTokens } from './wallet/game-wallet-integration.js';
+
 let scene, camera, renderer;
 let players = {};
 let localPlayer = null;
@@ -19,6 +22,7 @@ let gravity = -0.015;
 let jumpForce = 0.4;
 let moveSpeed = 0.2;
 let coinsCollected = 0;
+window.isPlaying = false;
 
 // Camera control variables
 let isDragging = false;
@@ -235,6 +239,9 @@ document.addEventListener('DOMContentLoaded', () => {
 // Initialize Three.js scene
 function init() {
     try {
+        // Initialize wallet integration
+        initWalletGameIntegration();
+        
         // Initialize scene
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x0b0b0b); // Dark background for night sky
@@ -877,19 +884,9 @@ function jump() {
     if (!isJumping) {
         isJumping = true;
         velocity = jumpForce;
-        // Add a small delay before allowing next jump
-        setTimeout(() => {
-            if (velocity <= 0) {
-                isJumping = false;
-            }
-        }, 100);
     }
 }
 
-// Mouse control functions
-function onMouseDown(event) {
-    isDragging = true;
-    previousMousePosition = {
         x: event.clientX,
         y: event.clientY
     };
@@ -1002,78 +999,68 @@ function resetPlayer() {
 
 // Update function that checks for ground collision
 function update() {
-    // Apply gravity
-    velocity += gravity;
-    player.position.y += velocity;
-
-    // Check for ground collision
-    if (player.position.y <= 0.5) { // Changed from 0 to 0.5 to account for player height
-        player.position.y = 0.5; // Keep player at ground level
-        velocity = 0;
-        isJumping = false; // Allow jumping again when on ground
+    if (player && canMove) {
+        // Apply movement
+        if (moveForward) {
+            player.translateZ(-moveSpeed);
+        }
+        if (moveBackward) {
+            player.translateZ(moveSpeed);
+        }
+        if (moveLeft) {
+            player.translateX(-moveSpeed);
+        }
+        if (moveRight) {
+            player.translateX(moveSpeed);
+        }
         
-        if (isInfinityMode) {
-            // Game over - hit the ground
-            showInfinityGameOver();
+        // Apply velocity to player's vertical position
+        player.position.y += velocity;
+        
+        // Apply gravity to velocity
+        velocity += gravity;
+        
+        // Check if player is on a platform
+        const isOnPlatform = checkPlatformCollisions();
+        
+        // If player is on a platform and falling, reset jumping state
+        if (isOnPlatform && velocity < 0) {
+            velocity = 0;
+            isJumping = false;
+        }
+        
+        // Check if player has fallen off (game over)
+        if (player.position.y < -10) {
+            if (isInfinityMode) {
+                showInfinityGameOver();
+            } else {
+                showGameOver();
+            }
             return;
         }
-    }
-
-    // Handle movement
-    const moveDirection = new THREE.Vector3(0, 0, 0);
-    const cameraDirection = camera.getWorldDirection(new THREE.Vector3());
-    cameraDirection.y = 0;
-    cameraDirection.normalize();
-
-    const cameraRight = new THREE.Vector3();
-    cameraRight.crossVectors(cameraDirection, new THREE.Vector3(0, 1, 0)).normalize();
-
-    if (moveForward) {
-        moveDirection.add(cameraDirection);
-    }
-    if (moveBackward) {
-        moveDirection.sub(cameraDirection);
-    }
-    if (moveLeft) {
-        moveDirection.sub(cameraRight);
-    }
-    if (moveRight) {
-        moveDirection.add(cameraRight);
-    }
-
-    if (moveDirection.length() > 0) {
-        moveDirection.normalize();
-        player.position.x += moveDirection.x * moveSpeed;
-        player.position.z += moveDirection.z * moveSpeed;
-    }
-
-    // Check platform collisions
-    const onPlatform = checkPlatformCollisions();
-    
-    // Only set isJumping to false if we're on a platform or the ground
-    if (onPlatform || player.position.y <= 0.5) {
-        isJumping = false;
-    }
-
-    // Check if player has fallen below a certain threshold
-    if (player.position.y < -10) {
-        if (isInfinityMode) {
-            showInfinityGameOver();
-        } else {
-            resetPlayer();
+        
+        // Check for coin collection
+        checkCoinCollection();
+        
+        // Check for level completion
+        if (!isInfinityMode && !isLevelComplete) {
+            checkLevelCompletion();
         }
+        
+        // In infinity mode, check platform progress and generate new platforms
+        if (isInfinityMode) {
+            checkInfinityProgress();
+        }
+        
+        // Apply camera updates
+        updateCamera();
+        
+        // Update UI
+        updateUI();
+        
+        // Update moving platforms
+        updateMovingPlatforms();
     }
-
-    // Check coin collection
-    checkCoinCollection();
-
-    // Check level completion
-    if (!isInfinityMode) {
-        checkLevelCompletion();
-    }
-
-    // Update UI
-    updateUI();
 }
 
 // Animation loop
@@ -1144,6 +1131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (startButton) {
         startButton.addEventListener('click', () => {
             console.log('Start button clicked');
+            window.isPlaying = true;
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('game-ui').style.display = 'block'; // Show the game UI
             if (!gameStarted) {
@@ -1220,19 +1208,37 @@ function checkCoinCollection() {
 
 // Collect coin
 function collectCoin(index) {
-    const coin = coins[index];
-    if (coin.visible) {
-        coin.visible = false;
-        
-        // Add points based on the current level's coin value
-        const coinValue = LEVEL_CONFIG[currentLevel].coinValue;
-        score += coinValue;
-        coinsCollected++;
-        updateUI();
-        
-        // Optional: Add particle effect here
-        createCoinCollectionEffect(coin.position);
+    // Add to score based on current level/difficulty
+    let coinValue = 1;
+    
+    if (isInfinityMode && infinityDifficulty) {
+        coinValue = INFINITY_CONFIG[infinityDifficulty].coinValue;
+    } else if (currentLevel in LEVEL_CONFIG) {
+        coinValue = LEVEL_CONFIG[currentLevel].coinValue;
     }
+    
+    score += coinValue;
+    coinsCollected++;
+    
+    // Award tokens for coin collection
+    const tokensAwarded = convertCoinToTokens(coinValue);
+    
+    // Create a coin collection event for other components to listen to
+    const coinEvent = new CustomEvent('coin_collected', {
+        detail: {
+            value: coinValue,
+            tokens: tokensAwarded,
+            position: coins[index].position.clone()
+        }
+    });
+    document.dispatchEvent(coinEvent);
+    
+    // Remove coin from scene and array
+    scene.remove(coins[index]);
+    coins.splice(index, 1);
+    
+    // Create coin collection visual effect
+    createCoinCollectionEffect(coins[index].position.clone());
 }
 
 // Create particle effect for coin collection
@@ -1362,6 +1368,8 @@ function checkLevelCompletion() {
 
 // Update level completion handler with improved UI
 function completedLevel() {
+    if (isLevelComplete) return; // Prevent multiple calls
+    
     isLevelComplete = true;
     
     // Calculate level bonus based on current level
@@ -1369,6 +1377,16 @@ function completedLevel() {
     
     // Add bonus to score
     score += levelBonus;
+    
+    // Create a level completion event for the wallet system
+    const levelEvent = new CustomEvent('level_completed', {
+        detail: {
+            level: currentLevel,
+            score: score,
+            coins: coinsCollected
+        }
+    });
+    document.dispatchEvent(levelEvent);
     
     // Get level complete UI element
     const levelCompleteUI = document.getElementById('level-complete');
@@ -1390,6 +1408,10 @@ function completedLevel() {
                 <div class="stat-row">
                     <div class="stat-label">Coins Collected:</div>
                     <div class="stat-value">${coinsCollected}</div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">$JUMPER Tokens:</div>
+                    <div class="stat-value token-value">+${coinsCollected * 5 + 20}</div>
                 </div>
                 <div class="stat-row">
                     <div class="stat-label">Total Score:</div>
@@ -1828,9 +1850,15 @@ function checkInfinityProgress() {
 }
 
 function showInfinityGameOver() {
-    // Stop the animation loop
+    // Set playing state to false
+    window.isPlaying = false;
+    
+    // Stop animation
     stopAnimation();
-    gameStarted = false;
+    
+    // Show game over screen
+    const gameOverScreen = document.getElementById('infinity-game-over');
+    gameOverScreen.style.display = 'flex';
     
     // Calculate final score
     const finalScore = score + (coinsCollected * INFINITY_CONFIG[infinityDifficulty].coinValue);
@@ -1838,9 +1866,6 @@ function showInfinityGameOver() {
     // Update UI
     document.getElementById('infinity-coins').textContent = coinsCollected;
     document.getElementById('infinity-score').textContent = finalScore;
-    
-    // Show game over screen
-    document.getElementById('infinity-game-over').style.display = 'flex';
     
     // Focus on the name input
     const playerNameInput = document.getElementById('player-name');
@@ -1987,7 +2012,9 @@ function setupDisappearingPlatform(platform) {
 
 // Update infinity mode button click handlers
 document.getElementById('infinity-button').addEventListener('click', () => {
+    window.isPlaying = true;
     document.getElementById('infinity-mode-select').style.display = 'flex';
+    document.getElementById('start-screen').style.display = 'none';
 });
 
 document.getElementById('easy-mode').addEventListener('click', () => {
@@ -2000,6 +2027,13 @@ document.getElementById('medium-mode').addEventListener('click', () => {
 
 document.getElementById('hard-mode').addEventListener('click', () => {
     initInfinityMode('hard');
+});
+
+// Add event listener for back button
+document.getElementById('back-button').addEventListener('click', () => {
+    document.getElementById('infinity-mode-select').style.display = 'none';
+    document.getElementById('start-screen').style.display = 'flex';
+    window.isPlaying = false;
 });
 
 // Add event listeners for infinity mode
@@ -2036,6 +2070,9 @@ function getPlatformColor(type) {
 
 // Show game over screen for regular mode
 function showGameOver() {
+    // Set playing state to false
+    window.isPlaying = false;
+
     // Stop the animation loop
     stopAnimation();
     
@@ -2354,3 +2391,16 @@ function updateLights() {
         window.followLight.target.updateMatrixWorld();
     }
 }
+
+// Restore jump timeout function that was removed
+function checkJumpState() {
+    // Add a small delay before allowing next jump
+    setTimeout(() => {
+        if (velocity <= 0) {
+            isJumping = false;
+        }
+    }, 100);
+}
+
+// Initialize the game
+init();
