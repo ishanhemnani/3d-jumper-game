@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Background -->
+  <rect width="64" height="64" rx="8" fill="#0B0B0B"/>
+  
+  <!-- Platforms -->
+  <rect x="8" y="40" width="20" height="6" rx="1" fill="#1A1A1A"/>
+  <rect x="36" y="32" width="20" height="6" rx="1" fill="#9945FF"/>
+  <rect x="20" y="24" width="20" height="6" rx="1" fill="#14F195"/>
+  
+  <!-- Player/Jumper -->
+  <rect x="24" y="14" width="10" height="10" rx="2" fill="#F3BA2F"/>
+  
+  <!-- Coins -->
+  <circle cx="16" cy="36" r="3" fill="#F3BA2F"/>
+  <circle cx="46" cy="28" r="3" fill="#F3BA2F"/>
+  <circle cx="30" cy="20" r="3" fill="#F3BA2F"/>
+</svg> 

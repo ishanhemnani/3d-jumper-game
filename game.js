@@ -53,7 +53,7 @@ const INFINITY_CONFIG = {
         newPlatformsCount: 7,
         heightStep: 2.2,
         coinValue: 100,
-        platformWidth: 3 // Increased platform width
+        platformWidth: 5 // Increased platform width from 3 to 5
     },
     medium: {
         platformTypes: ['normal', 'moving'],
@@ -62,7 +62,7 @@ const INFINITY_CONFIG = {
         heightStep: 2.5,
         coinValue: 150,
         movingPlatformChance: 0.4,
-        platformWidth: 3 // Increased platform width
+        platformWidth: 4.5 // Increased platform width from 3 to 4.5
     },
     hard: {
         platformTypes: ['normal', 'moving', 'disappearing'],
@@ -72,7 +72,7 @@ const INFINITY_CONFIG = {
         coinValue: 200,
         movingPlatformChance: 0.3,
         disappearingPlatformChance: 0.25, // Slightly reduced from 0.3
-        platformWidth: 3.5 // Larger platforms for hard mode
+        platformWidth: 4 // Increased platform width from 3.5 to 4
     }
 };
 
@@ -275,8 +275,20 @@ function init() {
         const ambientLight = new THREE.AmbientLight(0x333333, 0.4); // Reduced intensity
         scene.add(ambientLight);
         
+        // Add a brighter, soft ambient light to improve overall visibility
+        const softAmbientLight = new THREE.AmbientLight(0x6b6b9d, 0.6); // Soft bluish ambient light
+        scene.add(softAmbientLight);
+        
+        // Add a hemisphere light for better environmental lighting
+        const hemisphereLight = new THREE.HemisphereLight(
+            0xaaccff, // Sky color - soft blue
+            0x444466, // Ground color - darker blue
+            0.5 // Intensity
+        );
+        scene.add(hemisphereLight);
+        
         // Add directional light (moonlight)
-        const directionalLight = new THREE.DirectionalLight(0xaaaaff, 0.3); // Reduced intensity
+        const directionalLight = new THREE.DirectionalLight(0xaaaaff, 0.4); // Increased intensity slightly
         directionalLight.position.set(5, 10, 5);
         directionalLight.castShadow = true;
         directionalLight.shadow.mapSize.width = 1024;
@@ -313,36 +325,41 @@ function init() {
         scene.add(spotLight2);
         
         // Create a follow light that moves with the player to illuminate platforms above
-        const followLight = new THREE.SpotLight(0xffffff, 0.5); // Reduced intensity
+        const followLight = new THREE.SpotLight(0xffffff, 0.7); // Increased intensity
         followLight.position.set(0, 2, 0);
-        followLight.angle = Math.PI / 3;
-        followLight.penumbra = 0.2;
-        followLight.decay = 0.5;
-        followLight.distance = 100; // Long range to reach high platforms
+        followLight.angle = Math.PI / 2.5; // Wider angle
+        followLight.penumbra = 0.3; // Softer edge
+        followLight.decay = 0.2; // Less decay for better reach
+        followLight.distance = 150; // Longer range to reach high platforms
         followLight.target.position.set(0, 20, 0); // Point upward
         scene.add(followLight);
         scene.add(followLight.target);
         
         // Add side lights to ensure platforms are visible from all angles
-        const leftLight = new THREE.DirectionalLight(0xffffff, 0.2); // Reduced intensity
+        const leftLight = new THREE.DirectionalLight(0xffffff, 0.3); // Increased intensity
         leftLight.position.set(-30, 20, 0);
         leftLight.lookAt(0, 0, 0);
         scene.add(leftLight);
         
-        const rightLight = new THREE.DirectionalLight(0xffffff, 0.2); // Reduced intensity
+        const rightLight = new THREE.DirectionalLight(0xffffff, 0.3); // Increased intensity
         rightLight.position.set(30, 20, 0);
         rightLight.lookAt(0, 0, 0);
         scene.add(rightLight);
         
-        const frontLight = new THREE.DirectionalLight(0xffffff, 0.2); // Reduced intensity
+        const frontLight = new THREE.DirectionalLight(0xffffff, 0.3); // Increased intensity
         frontLight.position.set(0, 20, 30);
         frontLight.lookAt(0, 0, 0);
         scene.add(frontLight);
         
-        const backLight = new THREE.DirectionalLight(0xffffff, 0.2); // Reduced intensity
+        const backLight = new THREE.DirectionalLight(0xffffff, 0.3); // Increased intensity
         backLight.position.set(0, 20, -30);
         backLight.lookAt(0, 0, 0);
         scene.add(backLight);
+        
+        // Add a subtle background light with large radius for overall scene illumination
+        const sceneLight = new THREE.PointLight(0xa0a0ff, 0.5, 200);
+        sceneLight.position.set(0, 50, 0);
+        scene.add(sceneLight);
         
         // Store the follow light for updating in the animation loop
         window.followLight = followLight;
@@ -362,6 +379,9 @@ function init() {
         document.addEventListener('mousedown', onMouseDown);
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
+        
+        // Initialize mobile controls
+        initMobileControls();
 
         console.log('Game initialized successfully');
         return true;
@@ -369,6 +389,109 @@ function init() {
         console.error('Error initializing game:', error);
         alert('Error: ' + error.message);
         return false;
+    }
+}
+
+// Initialize mobile controls with nipple.js
+function initMobileControls() {
+    // Check if nipple.js is loaded
+    if (typeof nipplejs === 'undefined') {
+        console.error('nipplejs library not loaded');
+        return;
+    }
+    
+    // Setup joystick
+    const joystickOptions = {
+        zone: document.getElementById('joystick-zone'),
+        mode: 'static',
+        position: { left: '50%', top: '50%' },
+        color: 'white',
+        size: 100
+    };
+    
+    const joystick = nipplejs.create(joystickOptions);
+    
+    // Joystick move event
+    joystick.on('move', (evt, data) => {
+        const force = data.force < 1 ? data.force : 1;
+        const angle = data.angle.radian;
+        
+        // Reset movement flags
+        moveForward = false;
+        moveBackward = false;
+        moveLeft = false;
+        moveRight = false;
+        
+        // Calculate direction based on joystick angle
+        if (angle >= 0 && angle < Math.PI / 4 || angle >= 7 * Math.PI / 4) {
+            moveRight = true;
+        } else if (angle >= Math.PI / 4 && angle < 3 * Math.PI / 4) {
+            moveForward = true;
+        } else if (angle >= 3 * Math.PI / 4 && angle < 5 * Math.PI / 4) {
+            moveLeft = true;
+        } else if (angle >= 5 * Math.PI / 4 && angle < 7 * Math.PI / 4) {
+            moveBackward = true;
+        }
+        
+        // Adjust diagonal movement
+        if (Math.abs(Math.sin(angle)) > 0.5 && Math.abs(Math.cos(angle)) > 0.5) {
+            if (angle >= Math.PI / 4 && angle < Math.PI / 2) {
+                moveForward = true;
+                moveRight = true;
+            } else if (angle >= Math.PI / 2 && angle < 3 * Math.PI / 4) {
+                moveForward = true;
+                moveLeft = true;
+            } else if (angle >= 3 * Math.PI / 4 && angle < Math.PI) {
+                moveLeft = true;
+                moveBackward = false;
+            } else if (angle >= Math.PI && angle < 5 * Math.PI / 4) {
+                moveLeft = true;
+                moveBackward = true;
+            } else if (angle >= 5 * Math.PI / 4 && angle < 3 * Math.PI / 2) {
+                moveBackward = true;
+                moveRight = false;
+            } else if (angle >= 3 * Math.PI / 2 && angle < 7 * Math.PI / 4) {
+                moveBackward = true;
+                moveRight = true;
+            } else if ((angle >= 7 * Math.PI / 4 && angle < 2 * Math.PI) || (angle >= 0 && angle < Math.PI / 4)) {
+                moveRight = true;
+                moveForward = false;
+            }
+        }
+        
+        // Scale movement speed based on joystick force
+        moveSpeed = 0.2 * force;
+    });
+    
+    // Joystick end event
+    joystick.on('end', () => {
+        moveForward = false;
+        moveBackward = false;
+        moveLeft = false;
+        moveRight = false;
+        moveSpeed = 0.2; // Reset to default speed
+    });
+    
+    // Jump button
+    const jumpButton = document.getElementById('jump-button');
+    
+    // Jump on touchstart
+    jumpButton.addEventListener('touchstart', (e) => {
+        e.preventDefault(); // Prevent default touch behavior
+        jump();
+    });
+    
+    // Also support click for testing on non-touch devices
+    jumpButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        jump();
+    });
+    
+    // Detect mobile device for auto-enabling controls
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+        document.getElementById('mobile-controls').style.display = 'block';
     }
 }
 
@@ -548,7 +671,8 @@ function createPlatforms() {
 
 // Create a single platform with improved collision box
 function createPlatform(x, y, width, height, color) {
-    const geometry = new THREE.BoxGeometry(width, height, 2);
+    // Make platforms square by setting depth equal to width
+    const geometry = new THREE.BoxGeometry(width, height, width);
     const material = new THREE.MeshPhongMaterial({ 
         color: color,
         shadowSide: THREE.DoubleSide 
@@ -572,7 +696,7 @@ function createLevel1Platforms() {
     platforms = [];
     
     // First platform is always static and in a fixed position
-    const firstPlatform = createPlatform(0, 2, 3, 0.5, 0x1a1a1a);
+    const firstPlatform = createPlatform(0, 2, 5, 0.5, 0x1a1a1a);
     firstPlatform.position.z = 0;
     platforms.push(firstPlatform);
     createCoin(0, 3.5, 0);
@@ -621,7 +745,7 @@ function createLevel1Platforms() {
 
         // Create platform based on type
         let platform;
-        const width = 3; // Fixed width for better consistency
+        const width = 4.5; // Increased width for better playability
 
         switch (platformType) {
             case 'moving':
@@ -655,14 +779,27 @@ function createLevel1Platforms() {
 
     // Add final platform (golden platform) - centered above the spiral
     const finalHeight = lastY + PLATFORM_SPACING.HEIGHT_STEP;
-    createGoalPlatform(0, finalHeight, 0, 4);
+    createGoalPlatform(0, finalHeight, 0, 6); // Increased goal platform width to 6
     createCoin(0, finalHeight + 1.5, 0);
 }
 
 // Create a moving platform
 function createMovingPlatform(x, y, z, width) {
-    const platform = createPlatform(x, y, width, 0.5, 0x9945FF); // Blue color
-    platform.position.z = z;
+    // Make sure width is sufficiently large, but 20% smaller than before
+    width = Math.max(width, 3.6); // Reduced from 4.5 (20% reduction)
+    // Create a square platform by making depth equal to width
+    const geometry = new THREE.BoxGeometry(width, 0.5, width);
+    const material = new THREE.MeshPhongMaterial({ 
+        color: 0x9945FF, // Blue color
+        shadowSide: THREE.DoubleSide 
+    });
+    const platform = new THREE.Mesh(geometry, material);
+    platform.position.set(x, y, z);
+    platform.castShadow = true;
+    platform.receiveShadow = true;
+    
+    // Add platform to scene
+    scene.add(platform);
     
     // Add movement properties
     const movement = {
@@ -679,8 +816,21 @@ function createMovingPlatform(x, y, z, width) {
 
 // Create a disappearing platform
 function createDisappearingPlatform(x, y, z, width) {
-    const platform = createPlatform(x, y, width, 0.5, 0x14F195); // Solana green
-    platform.position.z = z;
+    // Make sure width is sufficiently large, but reduced by 20%
+    width = Math.max(width, 3.6); // Reduced from 4.5
+    // Create a square platform by making depth equal to width
+    const geometry = new THREE.BoxGeometry(width, 0.5, width);
+    const material = new THREE.MeshPhongMaterial({ 
+        color: 0x14F195, // Solana green
+        shadowSide: THREE.DoubleSide 
+    });
+    const platform = new THREE.Mesh(geometry, material);
+    platform.position.set(x, y, z);
+    platform.castShadow = true;
+    platform.receiveShadow = true;
+    
+    // Add platform to scene
+    scene.add(platform);
     
     platformStates.set(platform.id, {
         visible: true,
@@ -722,7 +872,7 @@ function isPlayerOnPlatform(platform) {
     const dx = Math.abs(player.position.x - platform.position.x);
     const dz = Math.abs(player.position.z - platform.position.z);
     const platformWidth = platform.geometry.parameters.width;
-    const platformDepth = platform.geometry.parameters.depth || 2;
+    const platformDepth = platform.geometry.parameters.depth || platformWidth; // Use width for depth if not defined
 
     return (dx < platformWidth / 2 + 0.4 &&
             dz < platformDepth / 2 + 0.4 &&
@@ -762,7 +912,7 @@ function checkPlatformCollisions() {
 
         const platformTop = platform.position.y + 0.25;
         const platformWidth = platform.geometry.parameters.width;
-        const platformDepth = platform.geometry.parameters.depth || 2;
+        const platformDepth = platform.geometry.parameters.depth || platformWidth; // Use width for depth if not specified
 
         // Calculate horizontal distances
         const dx = Math.abs(player.position.x - platform.position.x);
@@ -792,10 +942,11 @@ function checkPlatformCollisions() {
         const dx = Math.abs(player.position.x - goalPlatform.position.x);
         const dz = Math.abs(player.position.z - goalPlatform.position.z);
         const platformWidth = goalPlatform.geometry.parameters.width;
+        const platformDepth = goalPlatform.geometry.parameters.depth || platformWidth; // Use width for depth
         const platformTop = goalPlatform.position.y + 0.25;
 
         if (dx < (platformWidth / 2 + playerRadius) && 
-            dz < (1 + playerRadius) && 
+            dz < (platformDepth / 2 + playerRadius) && 
             playerBottom >= platformTop - 0.2 && 
             playerBottom <= platformTop + 0.2 && 
             velocity <= 0) {
@@ -888,6 +1039,11 @@ function jump() {
 
 // Mouse control functions
 function onMouseDown(event) {
+    // Don't enable camera dragging on mobile devices
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        return;
+    }
+    
     isDragging = true;
     previousMousePosition = {
         x: event.clientX,
@@ -1230,6 +1386,27 @@ function collectCoin(index) {
         coinsCollected++;
         updateUI();
         
+        // Add $JUMPER tokens if wallet is connected
+        if (window.tokenFunctions) {
+            try {
+                // Get screen coordinates for token notification
+                const coinPosition = coin.position.clone();
+                const vector = coinPosition.project(camera);
+                const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+                const y = (-(vector.y) * 0.5 + 0.5) * window.innerHeight;
+                
+                // Add tokens equal to coin value
+                window.tokenFunctions.addTokens(coinValue, x, y);
+                
+                // Add to unclaimed tokens in wallet.js
+                if (typeof window.addUnclaimedTokens === 'function') {
+                    window.addUnclaimedTokens(coinValue);
+                }
+            } catch (err) {
+                console.error('Error adding tokens:', err);
+            }
+        }
+        
         // Optional: Add particle effect here
         createCoinCollectionEffect(coin.position);
     }
@@ -1298,7 +1475,8 @@ function updateUI() {
 
 // Update createGoalPlatform function to keep track of the glow element
 function createGoalPlatform(x, y, z, width) {
-    const geometry = new THREE.BoxGeometry(width, 0.5, 2);
+    // Make goal platform square by setting depth equal to width
+    const geometry = new THREE.BoxGeometry(width, 0.5, width);
     const material = new THREE.MeshStandardMaterial({ 
         color: 0xF3BA2F,
         emissive: 0xF3BA2F,
@@ -1314,8 +1492,8 @@ function createGoalPlatform(x, y, z, width) {
 
     // Only add glow effect in level 1
     if (currentLevel === 1) {
-        // Create separate glow effect
-        const glowGeometry = new THREE.BoxGeometry(width + 0.1, 0.55, 2.1);
+        // Create separate glow effect - also square
+        const glowGeometry = new THREE.BoxGeometry(width + 0.1, 0.55, width + 0.1);
         const glowMaterial = new THREE.MeshBasicMaterial({ 
             color: 0xF3BA2F,
             transparent: true,
@@ -1369,6 +1547,17 @@ function completedLevel() {
     
     // Add bonus to score
     score += levelBonus;
+    
+    // Award $JUMPER tokens for level completion
+    if (window.addUnclaimedTokens) {
+        window.addUnclaimedTokens(levelBonus).then(() => {
+            // Update token UI if visible
+            if (window.tokenFunctions) {
+                // Show token notification in center of screen
+                window.showTokenNotification(levelBonus, window.innerWidth / 2, window.innerHeight / 2);
+            }
+        }).catch(err => console.error('Error adding level bonus tokens:', err));
+    }
     
     // Get level complete UI element
     const levelCompleteUI = document.getElementById('level-complete');
@@ -1755,8 +1944,8 @@ function generateNewPlatforms() {
             if (rand < config.movingPlatformChance) platformType = 'moving';
         }
         
-        // Calculate new position relative to the last platform
-        const maxOffset = 4; // Maximum distance from last platform
+        // Calculate new position relative to the last platform with reduced distance
+        const maxOffset = 3; // Reduced from 4 to keep platforms closer
         const x = lastPlatform ? lastPlatform.position.x + (Math.random() * maxOffset * 2 - maxOffset) : 0;
         const z = lastPlatform ? lastPlatform.position.z + (Math.random() * maxOffset * 2 - maxOffset) : 0;
         
@@ -1834,6 +2023,17 @@ function showInfinityGameOver() {
     
     // Calculate final score
     const finalScore = score + (coinsCollected * INFINITY_CONFIG[infinityDifficulty].coinValue);
+    
+    // Award $JUMPER tokens for total score in infinity mode
+    if (window.addUnclaimedTokens) {
+        window.addUnclaimedTokens(finalScore).then(() => {
+            // Update token UI if visible
+            if (window.tokenFunctions) {
+                // Show token notification in center of screen
+                window.showTokenNotification(finalScore, window.innerWidth / 2, window.innerHeight / 2);
+            }
+        }).catch(err => console.error('Error adding infinity score tokens:', err));
+    }
     
     // Update UI
     document.getElementById('infinity-coins').textContent = coinsCollected;
@@ -1933,8 +2133,8 @@ function createInfinityLevel() {
             if (rand < config.movingPlatformChance) platformType = 'moving';
         }
         
-        // Calculate new position relative to the last platform
-        const maxOffset = 4; // Maximum distance from last platform
+        // Calculate new position relative to the last platform with reduced distance
+        const maxOffset = 3; // Reduced from 4 to keep platforms closer
         const x = lastX + (Math.random() * maxOffset * 2 - maxOffset);
         const z = lastZ + (Math.random() * maxOffset * 2 - maxOffset);
         

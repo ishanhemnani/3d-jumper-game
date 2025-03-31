@@ -4,9 +4,224 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Platform Jumper - Vibe Game 2025</title>
+    <!-- Multiple favicon references for different path resolutions -->
+    <link rel="icon" type="image/x-icon" href="public/favicon.ico">
+    <link rel="icon" type="image/png" href="public/favicon.png">
+    <link rel="icon" type="image/svg+xml" href="public/images/favicon.svg">
+    <!-- Direct references -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+    <!-- Absolute paths -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
     <link rel="stylesheet" href="styles.css">
+    <script>
+        // Prevent unwanted touch behaviors on mobile
+        document.addEventListener('touchmove', function(e) {
+            if (e.target.id !== 'joystick-zone' && e.target.id !== 'jump-button') {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        document.addEventListener('touchstart', function(e) {
+            if (e.target.tagName !== 'BUTTON' && e.target.id !== 'joystick-zone' && e.target.id !== 'jump-button') {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+    <style>
+        #wallet-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        #wallet-button:hover {
+            background-color: #45a049;
+        }
+        #wallet-button.disconnected {
+            background-color: #f44336;
+        }
+        #wallet-button.disconnected:hover {
+            background-color: #da190b;
+        }
+        
+        /* $JUMPER Token UI Styles */
+        #token-ui {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            z-index: 1000;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 5px;
+            padding: 10px;
+            display: none;
+        }
+        
+        #token-balance {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .token-icon {
+            width: 20px;
+            height: 20px;
+            background-color: gold;
+            border-radius: 50%;
+            margin-right: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        #claim-button {
+            background-color: #ff9800;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 14px;
+            display: none;
+            width: 100%;
+            margin-top: 5px;
+        }
+        
+        #claim-button:hover {
+            background-color: #e68a00;
+        }
+        
+        .token-notification {
+            position: fixed;
+            color: gold;
+            font-weight: bold;
+            font-size: 18px;
+            animation: float-up 1.5s forwards;
+            z-index: 1001;
+            pointer-events: none;
+            text-shadow: 0 0 5px rgba(0,0,0,0.7);
+        }
+        
+        @keyframes float-up {
+            0% {
+                opacity: 0;
+                transform: translateY(0);
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+        }
+        
+        /* Mobile Controls Styles */
+        #mobile-controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 200px;
+            display: none;
+            z-index: 1000;
+            pointer-events: none;
+        }
+        
+        #joystick-zone {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background-color: rgba(0, 0, 0, 0.3);
+            pointer-events: auto;
+            touch-action: none;
+        }
+        
+        #jump-button {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.5);
+            color: #000;
+            font-weight: bold;
+            font-size: 16px;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+        }
+        
+        #jump-button:active {
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+        
+        /* Hide mobile controls on desktop */
+        @media (min-width: 769px) {
+            #mobile-controls {
+                display: none !important;
+            }
+        }
+        
+        /* Show mobile controls on mobile */
+        @media (max-width: 768px) {
+            #mobile-controls {
+                display: block;
+            }
+            
+            /* Adjust UI elements for mobile */
+            #game-ui {
+                font-size: 14px;
+            }
+            
+            /* Make home button bigger on mobile */
+            #home-button {
+                padding: 12px 16px;
+                font-size: 16px;
+            }
+            
+            /* Adjust wallet button position on mobile */
+            #wallet-button {
+                top: 10px;
+                right: 10px;
+                font-size: 14px;
+                padding: 8px 12px;
+            }
+            
+            /* Make sure token UI doesn't overlap */
+            #token-ui {
+                top: 50px;
+                right: 10px;
+            }
+        }
+    </style>
     <!-- Our scripts will be injected by the server after this -->
     <!-- The window.SUPABASE_URL and window.SUPABASE_KEY variables will be available -->
     <script>
@@ -279,6 +494,20 @@ USING (true);
     <script type="module" src="game.js"></script>
 </head>
 <body>
+    <button id="wallet-button">Connect Wallet</button>
+    
+    <!-- $JUMPER Token UI -->
+    <div id="token-ui">
+        <div id="token-balance">
+            <div class="token-icon">J</div>
+            <span id="token-amount">0</span>
+        </div>
+        <div id="unclaimed-tokens">
+            <span id="unclaimed-amount">0</span> unclaimed
+        </div>
+        <button id="claim-button">Claim $JUMPER</button>
+    </div>
+    
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
         
@@ -411,9 +640,134 @@ USING (true);
     </div>
 
     <div id="mobile-controls">
-        <div id="joystick"></div>
+        <div id="joystick-zone"></div>
+        <button id="jump-button">JUMP</button>
     </div>
 
     <a target="_blank" href="https://jam.pieter.com" style="font-family: 'system-ui', sans-serif; position: fixed; bottom: -1px; right: -1px; padding: 7px; font-size: 14px; font-weight: bold; background: #fff; color: #000; text-decoration: none; z-index: 10; border-top-left-radius: 12px; z-index: 10000; border: 1px solid #fff;">🕹️ Vibe Jam 2025</a>
+
+    <script type="module">
+        import { 
+            connectWallet, 
+            disconnectWallet, 
+            getWalletStatus,
+            getTokenBalances,
+            claimTokens,
+            mintAndAirdropTokens
+        } from './wallet.js';
+        
+        // Initialize wallet button
+        const walletButton = document.getElementById('wallet-button');
+        const tokenUI = document.getElementById('token-ui');
+        const tokenAmount = document.getElementById('token-amount');
+        const unclaimedAmount = document.getElementById('unclaimed-amount');
+        const claimButton = document.getElementById('claim-button');
+        
+        // Update button text and style based on wallet status
+        const updateWalletButton = () => {
+            const status = getWalletStatus();
+            if (status.isConnected) {
+                const shortAddress = `${status.publicKey.slice(0, 4)}...${status.publicKey.slice(-4)}`;
+                walletButton.textContent = shortAddress;
+                walletButton.classList.remove('disconnected');
+                tokenUI.style.display = 'block';
+                updateTokenDisplay();
+            } else {
+                walletButton.textContent = 'Connect Wallet';
+                walletButton.classList.add('disconnected');
+                tokenUI.style.display = 'none';
+            }
+        };
+        
+        // Update token display
+        const updateTokenDisplay = () => {
+            const balances = getTokenBalances();
+            tokenAmount.textContent = balances.balance;
+            unclaimedAmount.textContent = balances.unclaimed;
+            
+            if (balances.unclaimed > 0) {
+                claimButton.style.display = 'block';
+            } else {
+                claimButton.style.display = 'none';
+            }
+        };
+        
+        // Create token notification
+        window.showTokenNotification = (amount, x, y) => {
+            const notification = document.createElement('div');
+            notification.className = 'token-notification';
+            notification.textContent = `+${amount} $JUMPER`;
+            notification.style.left = `${x}px`;
+            notification.style.top = `${y}px`;
+            document.body.appendChild(notification);
+            
+            // Remove after animation completes
+            setTimeout(() => {
+                notification.remove();
+            }, 1500);
+            
+            // Update token display
+            updateTokenDisplay();
+        };
+        
+        // Handle wallet connection/disconnection
+        walletButton.addEventListener('click', async () => {
+            const status = getWalletStatus();
+            if (status.isConnected) {
+                await disconnectWallet();
+            } else {
+                const publicKey = await connectWallet();
+                if (publicKey) {
+                    // Update Supabase with wallet address
+                    try {
+                        const { data: { user } } = await window.supabaseClient.auth.getUser();
+                        if (user) {
+                            await window.supabaseClient
+                                .from('users')
+                                .update({ wallet: publicKey })
+                                .eq('id', user.id);
+                        }
+                    } catch (error) {
+                        console.error('Error updating wallet in Supabase:', error);
+                    }
+                }
+            }
+            updateWalletButton();
+        });
+        
+        // Handle claim button
+        claimButton.addEventListener('click', async () => {
+            const claimed = claimTokens();
+            if (claimed > 0) {
+                // Simulate minting and airdropping tokens
+                const success = await mintAndAirdropTokens();
+                if (success) {
+                    alert(`Successfully claimed ${claimed} $JUMPER tokens!`);
+                    updateTokenDisplay();
+                } else {
+                    alert('Failed to claim tokens. Please try again.');
+                }
+            }
+        });
+        
+        // Make token functions available globally for game.js
+        window.tokenFunctions = {
+            addTokens: (amount, x, y) => {
+                // Show notification at the position where the token was collected
+                window.showTokenNotification(amount, x, y);
+                return getTokenBalances();
+            }
+        };
+        
+        // Make addUnclaimedTokens function globally accessible
+        window.addUnclaimedTokens = (amount) => {
+            return import('./wallet.js').then(module => {
+                return module.addUnclaimedTokens(amount);
+            });
+        };
+        
+        // Initial button state
+        updateWalletButton();
+    </script>
 </body>
 </html>
