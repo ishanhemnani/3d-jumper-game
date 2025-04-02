@@ -69,6 +69,12 @@ body {
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
     z-index: 1000;
     pointer-events: none;
+    display: none !important; /* Force hide by default */
+}
+
+/* Only show game UI when game is started */
+body.game-started #game-ui {
+    display: block !important;
 }
 
 #score-container, #coins-container {
@@ -224,14 +230,30 @@ body {
     transform: translateY(-2px);
 }
 
-/* Hide UI elements initially */
-#game-ui {
-    display: none;
+/* Ensure wallet button is always visible and properly positioned */
+#wallet-button {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1001; /* Higher than game UI */
+    padding: 10px 20px;
+    background-color: #14F195;
+    color: black;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
 }
 
-/* Show UI elements when game starts */
-.game-started #game-ui {
-    display: block;
+/* Mobile adjustments for wallet button */
+@media screen and (max-width: 768px) {
+    #wallet-button {
+        top: 10px;
+        right: 10px;
+        padding: 8px 15px;
+        font-size: 14px;
+    }
 }
 
 #leaderboard {
@@ -676,10 +698,10 @@ body {
     transform: translate(-50%, -50%);
     background-color: rgba(0, 0, 0, 0.85);
     color: white;
-    padding: 40px;
-    border-radius: 20px;
-    width: 90%;
-    max-width: 650px;
+    padding: 25px;
+    border-radius: 15px;
+    width: 95%;
+    max-width: 500px;
     text-align: center;
     z-index: 2000;
     backdrop-filter: blur(10px);
@@ -691,40 +713,28 @@ body {
 
 #screenshot-message h3 {
     color: #14F195;
-    margin-bottom: 25px;
-    font-size: 28px;
+    margin-bottom: 20px;
+    font-size: 22px;
     text-shadow: 0 0 8px rgba(76, 175, 80, 0.5);
     position: relative;
 }
 
-#screenshot-message h3::after {
-    content: '';
-    display: block;
-    width: 60px;
-    height: 3px;
-    background: #14F195;
-    position: absolute;
-    bottom: -12px;
-    left: 50%;
-    transform: translateX(-50%);
-    border-radius: 2px;
-}
-
 #screenshot-message p {
-    margin: 15px 0;
-    line-height: 1.5;
-    font-size: 16px;
+    margin: 12px 0;
+    line-height: 1.4;
+    font-size: 14px;
 }
 
 #screenshot-message ol {
     text-align: left;
-    padding-left: 30px;
-    margin: 15px 0;
-    line-height: 1.6;
+    padding-left: 25px;
+    margin: 12px 0;
+    line-height: 1.4;
+    font-size: 14px;
 }
 
 .screenshot-container {
-    margin: 25px auto;
+    margin: 15px auto;
     max-width: 100%;
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 8px;
@@ -736,7 +746,7 @@ body {
 #screenshot-image {
     width: 100%;
     height: auto;
-    max-height: 300px;
+    max-height: 200px;
     object-fit: contain;
 }
 
@@ -744,61 +754,55 @@ body {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 10px;
-    margin-top: 20px;
+    gap: 8px;
+    margin-top: 15px;
 }
 
 #download-screenshot-btn, #close-message-btn, #open-twitter-btn {
     background-color: #14F195;
     color: black;
     border: none;
-    padding: 12px 20px;
-    margin: 5px;
+    padding: 10px 15px;
+    margin: 3px;
     border-radius: 5px;
     cursor: pointer;
     font-weight: bold;
     transition: background-color 0.3s, transform 0.2s;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    min-width: 160px;
+    min-width: 140px;
+    font-size: 14px;
 }
 
-#download-screenshot-btn {
-    background-color: #1DA1F2;
-}
+/* Mobile adjustments */
+@media screen and (max-width: 480px) {
+    #screenshot-message {
+        padding: 20px;
+        width: 92%;
+    }
 
-#download-screenshot-btn:hover {
-    background-color: #0c85d0;
-    transform: translateY(-2px);
-}
+    #screenshot-message h3 {
+        font-size: 20px;
+        margin-bottom: 15px;
+    }
 
-#open-twitter-btn {
-    background-color: #1DA1F2;
-    position: relative;
-    padding-left: 40px;
-}
+    #screenshot-message p, #screenshot-message ol {
+        font-size: 13px;
+        line-height: 1.3;
+    }
 
-#open-twitter-btn:hover {
-    background-color: #0c85d0;
-    transform: translateY(-2px);
-}
+    #screenshot-image {
+        max-height: 180px;
+    }
 
-#open-twitter-btn::before {
-    content: '';
-    position: absolute;
-    left: 15px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 18px;
-    height: 18px;
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723 10.054 10.054 0 01-3.127 1.184 4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.937 4.937 0 004.604 3.417 9.868 9.868 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.054 0 13.999-7.496 13.999-13.986 0-.209 0-.42-.015-.63a9.936 9.936 0 002.46-2.548l-.047-.02z"/></svg>');
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: contain;
-}
+    .screenshot-buttons {
+        gap: 6px;
+    }
 
-#close-message-btn:hover {
-    background-color: #3e8e41;
-    transform: translateY(-2px);
+    #download-screenshot-btn, #close-message-btn, #open-twitter-btn {
+        padding: 8px 12px;
+        min-width: 130px;
+        font-size: 13px;
+    }
 }
 
 .game-mode-buttons {
@@ -1043,9 +1047,9 @@ body {
 #home-button {
     font-size: 16px;
     padding: 10px 15px;
-    position: absolute;
-    top: 160px;
-    right: 90px;
+    position: fixed;
+    top: 80px;
+    right: 20px;
     z-index: 10001; /* Increased z-index to be higher than any other element */
     margin: 0;
     pointer-events: auto; /* Ensure clicks are captured */
@@ -1058,4 +1062,158 @@ body {
     right: 20px;
     width: 150px;
     opacity: 0.8;
+}
+
+/* Mobile Responsive Styles */
+@media screen and (max-width: 768px) {
+    .main-content {
+        flex-direction: column;
+        padding: 10px;
+        height: auto;
+        overflow-y: auto;
+        max-height: 100vh;
+    }
+
+    .left-panel, .right-panel {
+        width: 100%;
+        padding: 10px;
+    }
+
+    #start-screen h1 {
+        font-size: 2em;
+        padding-top: 20px;
+    }
+
+    #start-screen h2 {
+        font-size: 20px;
+    }
+
+    .instructions-section {
+        margin-bottom: 15px;
+    }
+
+    .platform-types {
+        grid-template-columns: 1fr;
+    }
+
+    #leaderboard {
+        margin-top: 20px;
+        height: auto;
+        min-height: 300px;
+    }
+
+    .leaderboard-tabs {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .tab-button {
+        padding: 6px 12px;
+        font-size: 14px;
+    }
+
+    #leaderboard-table {
+        font-size: 14px;
+    }
+
+    #leaderboard-table th,
+    #leaderboard-table td {
+        padding: 8px;
+    }
+
+    #game-ui {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        top: 10px;
+        left: 10px;
+        font-size: 18px;
+    }
+
+    #score-container, #coins-container {
+        padding: 10px 15px;
+        margin-bottom: 10px;
+    }
+
+    #level-display {
+        font-size: 18px;
+        padding: 8px 15px;
+        top: 10px;
+    }
+
+    #home-button-container {
+        position: fixed;
+        top: 120px; /* Position below wallet button and token UI */
+        right: 10px;
+        z-index: 1000;
+    }
+
+    #home-button {
+        position: fixed;
+        top: 80px; /* Position below wallet button and token UI */
+        right: 20px;
+        padding: 8px 15px;
+        font-size: 14px;
+        z-index: 10001;
+    }
+
+    /* Ensure proper spacing between UI elements */
+    #wallet-button {
+        top: 10px;
+        right: 10px;
+    }
+
+    #token-ui {
+        top: 60px; /* Position below wallet button */
+        right: 10px;
+    }
+
+    /* Adjust game over and level complete screens for mobile */
+    #level-complete, #game-complete, #infinity-game-over {
+        width: 95%;
+        padding: 20px;
+    }
+
+    #level-complete h2, #game-complete h2, #infinity-game-over h2 {
+        font-size: 24px;
+    }
+
+    .stat-row {
+        font-size: 16px;
+    }
+
+    #next-level-button, .game-btn {
+        padding: 12px 24px;
+        font-size: 16px;
+    }
+}
+
+/* Additional styles for very small screens */
+@media screen and (max-width: 480px) {
+    #start-screen h1 {
+        font-size: 1.8em;
+    }
+
+    .leaderboard-content {
+        overflow-x: auto;
+    }
+
+    #leaderboard-table {
+        min-width: 300px;
+    }
+
+    #game-ui {
+        font-size: 16px;
+    }
+
+    .tab-button {
+        flex: 1;
+        min-width: 80px;
+        text-align: center;
+    }
+
+    #home-button {
+        padding: 8px 12px;
+        font-size: 13px;
+    }
 }

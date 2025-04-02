@@ -20,6 +20,14 @@ let jumpForce = 0.4;
 let moveSpeed = 0.2;
 let coinsCollected = 0;
 
+// Add mobile speed control
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+if (isMobile) {
+    gravity = -0.008; // Slower falling speed on mobile
+    jumpForce = 0.25; // Lower jump height on mobile
+    moveSpeed = 0.08; // Slower movement speed on mobile
+}
+
 // Camera control variables
 let isDragging = false;
 let previousMousePosition = { x: 0, y: 0 };
@@ -1301,7 +1309,7 @@ document.addEventListener('DOMContentLoaded', () => {
         startButton.addEventListener('click', () => {
             console.log('Start button clicked');
             document.getElementById('start-screen').style.display = 'none';
-            document.getElementById('game-ui').style.display = 'block'; // Show the game UI
+            document.body.classList.add('game-started'); // Add game-started class to body
             if (!gameStarted) {
                 if (init()) {
                     gameStarted = true;
@@ -1739,7 +1747,7 @@ function shareOnTwitter() {
     }
     
     // Create a tweet text that emphasizes adding the screenshot
-    const tweetText = `I just completed all ${totalLevels} levels of 3D Jumper Game with a final score of ${score} and collected ${coinsCollected} coins! Check out my gameplay! #3DJumperGame`;
+    const tweetText = `I just completed all ${totalLevels} levels of 3D Jumper Game with a final score of ${score} and collected ${coinsCollected} coins! Play this game at 3djumper.fun #3DJumperGame`;
     
     // Take a screenshot and prepare sharing UI
     takeScreenshot().then(imgData => {
@@ -1909,10 +1917,10 @@ function initInfinityMode(difficulty) {
     document.getElementById('score-value').textContent = '0';
     document.getElementById('coins-value').textContent = '0';
     
-    // Hide overlays
+    // Hide overlays and show game UI
     document.getElementById('infinity-mode-select').style.display = 'none';
     document.getElementById('start-screen').style.display = 'none';
-    document.getElementById('game-ui').style.display = 'block';
+    document.body.classList.add('game-started'); // Add game-started class to body
     
     // Reset player position
     player.position.set(0, 5, 0);
@@ -2020,6 +2028,7 @@ function showInfinityGameOver() {
     // Stop the animation loop
     stopAnimation();
     gameStarted = false;
+    document.body.classList.remove('game-started'); // Remove game-started class
     
     // Calculate final score
     const finalScore = score + (coinsCollected * INFINITY_CONFIG[infinityDifficulty].coinValue);
@@ -2248,9 +2257,10 @@ function showGameOver() {
     // Display the screen
     gameOverScreen.style.display = 'flex';
     
-    // Stop game
+    // Stop game and remove game-started class
     gameStarted = false;
     canMove = false;
+    document.body.classList.remove('game-started');
 }
 
 // Add event listener for regular game restart button
